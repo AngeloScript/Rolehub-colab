@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 7%; /* #111111 */
+    --foreground: 0 0% 98%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 159 100% 50%; /* #00FFA3 */
+    --primary-foreground: 0 0% 5%;
+    --secondary: 222 100% 50%; /* #0055FF */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 222 100% 50%; /* #0055FF */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 159 100% 50%;
+    --radius: 0.5rem;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .zap-path {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: zap-flow 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 2px hsl(var(--primary))) drop-shadow(0 0 5px hsl(var(--primary)));
+  }
+
+  .leaflet-popup-content-wrapper {
+    @apply bg-card/80 backdrop-blur-sm rounded-lg border-border/50;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+
+  .leaflet-popup-tip-container {
+      display: none;
+  }
+  .leaflet-popup-content {
+      margin: 10px;
+      font-family: var(--font-inter);
+  }
+
+  .leaflet-popup-content a {
+    @apply text-primary-foreground;
+  }
+
+  .animate-gradient {
+      background-position: 0% 50%;
+      animation: gradient-animation 5s ease infinite;
+  }
+
+  .dynamic-bg {
+    background-color: hsl(var(--dynamic-color));
+  }
+}
+
+@keyframes gradient-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+
+@keyframes zap-flow {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  40% {
+    stroke-dashoffset: 0;
+  }
+  60% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
