@@ -38,7 +38,7 @@ export function EventVibeCheck({ event, vibeVote, onVote, authUser }: EventVibeC
                         variant={vibeVote === 'cold' ? 'secondary' : 'outline'}
                         className="w-full"
                         onClick={() => onVote('cold')}
-                        disabled={!!vibeVote || !authUser}
+                        disabled={!authUser}
                         style={{ '--secondary': 'var(--page-secondary)' } as React.CSSProperties}
                     >
                         <ThumbsDown className="w-4 h-4 mr-2" />
@@ -49,7 +49,7 @@ export function EventVibeCheck({ event, vibeVote, onVote, authUser }: EventVibeC
                         variant={vibeVote === 'hot' ? 'secondary' : 'outline'}
                         className="w-full"
                         onClick={() => onVote('hot')}
-                        disabled={!!vibeVote || !authUser}
+                        disabled={!authUser}
                         style={{ '--secondary': 'var(--page-secondary)' } as React.CSSProperties}
                     >
                         <ThumbsUp className="w-4 h-4 mr-2" />
