@@ -22,7 +22,7 @@ import { useAuth } from '@/hooks/use-auth';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
 
-const GoogleMapComponent = dynamic(() => import('@/components/GoogleMapComponent').then(mod => mod.GoogleMapComponent), {
+const MapComponent = dynamic(() => import('@/components/MapComponent').then(mod => mod.MapComponent), {
   ssr: false,
   loading: () => <Skeleton className="h-full w-full rounded-lg" />,
 });
@@ -281,7 +281,7 @@ export default function EventFeed() {
                 transition={{ duration: 0.3 }}
                 className="h-[calc(100vh-200px)] rounded-lg overflow-hidden border border-border/20 shadow-inner"
               >
-                <GoogleMapComponent events={eventsWithCoords} />
+                <MapComponent events={eventsWithCoords} />
               </motion.div>
             )}
           </AnimatePresence>

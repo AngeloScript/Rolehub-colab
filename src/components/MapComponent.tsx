@@ -19,7 +19,7 @@ L.Icon.Default.mergeOptions({
 });
 
 
-interface GoogleMapComponentProps {
+interface MapComponentProps {
     events: Event[];
     singleEvent?: boolean;
 }
@@ -68,7 +68,7 @@ function LocateButton() {
     );
 }
 
-export function GoogleMapComponent({ events, singleEvent = false }: GoogleMapComponentProps) {
+export function MapComponent({ events, singleEvent = false }: MapComponentProps) {
     const defaultCenter: [number, number] = [-23.550520, -46.633308];
     const [isMounted, setIsMounted] = useState(false);
     const [mapKey] = useState(() => `map-${Date.now()}-${Math.random()}`);
@@ -102,8 +102,8 @@ export function GoogleMapComponent({ events, singleEvent = false }: GoogleMapCom
                 }}
             >
                 <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                 />
 
                 <MapBounds events={events} />

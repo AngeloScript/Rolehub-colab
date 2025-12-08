@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Event } from '@/lib/types';
 
-const GoogleMapComponent = dynamic(() => import('@/components/GoogleMapComponent').then(mod => mod.GoogleMapComponent), {
+const MapComponent = dynamic(() => import('@/components/MapComponent').then(mod => mod.MapComponent), {
     ssr: false,
     loading: () => <Skeleton className="h-full w-full rounded-lg" />,
 });
@@ -32,7 +32,7 @@ export function EventLocation({ event }: EventLocationProps) {
             </div>
             <div className="aspect-video rounded-lg overflow-hidden border border-border/20">
                 {typeof event.latitude === 'number' && typeof event.longitude === 'number' ? (
-                    <GoogleMapComponent events={[event]} singleEvent={true} />
+                    <MapComponent events={[event]} singleEvent={true} />
                 ) : (
                     <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
                         Localização não disponível
