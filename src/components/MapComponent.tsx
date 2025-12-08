@@ -72,14 +72,14 @@ export function MapComponent({ events, singleEvent = false }: MapComponentProps)
     const defaultCenter: [number, number] = [-23.550520, -46.633308];
     const [isMounted, setIsMounted] = useState(false);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mapRef = useRef<any>(null); // Use ref to hold map instance for cleanup
+    const mapRef = useRef<any>(null);
+    const [mapKey] = useState(() => `map-${Date.now()}`);
 
     useEffect(() => {
         setIsMounted(true);
 
         return () => {
             setIsMounted(false);
-            // Explicitly remove map on unmount to prevent "Map container is already initialized"
             if (mapRef.current) {
                 mapRef.current.remove();
                 mapRef.current = null;
@@ -98,6 +98,7 @@ export function MapComponent({ events, singleEvent = false }: MapComponentProps)
     return (
         <div className="relative w-full h-full">
             <MapContainer
+                key={mapKey}
                 ref={mapRef}
                 center={defaultCenter}
                 zoom={12}
