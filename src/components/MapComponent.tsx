@@ -70,30 +70,18 @@ function LocateButton() {
 
 export function MapComponent({ events, singleEvent = false }: MapComponentProps) {
     const defaultCenter: [number, number] = [-23.550520, -46.633308];
-    const [isMounted, setIsMounted] = useState(false);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mapRef = useRef<any>(null);
     const [mapKey] = useState(() => `map-${Date.now()}`);
 
     useEffect(() => {
-        setIsMounted(true);
-
         return () => {
-            setIsMounted(false);
             if (mapRef.current) {
                 mapRef.current.remove();
                 mapRef.current = null;
             }
         };
     }, []);
-
-    if (!isMounted) {
-        return (
-            <div className="w-full h-full bg-muted animate-pulse rounded-lg flex items-center justify-center">
-                <span className="text-muted-foreground">Carregando mapa...</span>
-            </div>
-        );
-    }
 
     return (
         <div className="relative w-full h-full">
