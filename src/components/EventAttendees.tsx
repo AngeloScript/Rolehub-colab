@@ -65,7 +65,7 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
           setParticipants([]);
         }
       } catch (error) {
-        console.error("Error fetching participants:", error);
+        console.error("Error fetching participants:", JSON.stringify(error, null, 2));
         setParticipants([]);
       } finally {
         setIsLoading(false);

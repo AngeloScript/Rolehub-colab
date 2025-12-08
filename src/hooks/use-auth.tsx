@@ -10,6 +10,7 @@ interface AuthContextType {
   userData: AppUser | null;
   loading: boolean;
   session: Session | null;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({
   userData: null,
   loading: true,
   session: null,
+  refreshUserData: async () => { },
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -49,48 +51,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    async function fetchUserData() {
-      if (user) {
-        try {
-          const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-
-          if (error) {
-            console.error("Error fetching user data:", error);
-            setUserData(null);
-          } else {
-            const mappedUser: AppUser = {
-              id: data.id,
-              name: data.name,
-              email: data.email,
-              avatar: data.avatar,
-              savedEvents: data.saved_events || [],
-              relationshipStatus: data.relationship_status,
-              bio: data.bio,
-              following: data.following || [],
-              followers: data.followers || 0,
-              checkIns: data.check_ins || 0,
-              isMock: false
-            };
-            setUserData(mappedUser);
-          }
-        } catch (error) {
-          console.error("Unexpected error fetching user data:", error);
-          setUserData(null);
-        } finally {
-          setLoading(false);
-        }
-      }
-    }
-
     fetchUserData();
   }, [user]);
 
+  async function fetchUserData() {
+    if (user) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching user data:", error);
+          setUserData(null);
+        } else {
+          const mappedUser: AppUser = {
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            avatar: data.avatar,
+            savedEvents: data.saved_events || [],
+            relationshipStatus: data.relationship_status,
+            bio: data.bio,
+            following: data.following || [],
+            followers: data.followers || 0,
+            checkIns: data.check_ins || 0,
+            isMock: false
+          };
+          setUserData(mappedUser);
+        }
+      } catch (error) {
+        console.error("Unexpected error fetching user data:", error);
+        setUserData(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
+  const refreshUserData = async () => {
+    await fetchUserData();
+  };
+
   return (
-    <AuthContext.Provider value={{ user, userData, loading, session }}>
+    <AuthContext.Provider value={{ user, userData, loading, session, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );

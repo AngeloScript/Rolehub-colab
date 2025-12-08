@@ -26,7 +26,7 @@ import { ClientOnly } from '@/components/ClientOnly';
 export default function EventDetail() {
   const params = useParams();
   const router = useRouter();
-  const { user: authUser, userData, loading: authLoading } = useAuth();
+  const { user: authUser, userData, loading: authLoading, refreshUserData } = useAuth();
   const { toast } = useToast();
   const eventId = typeof params.id === 'string' ? params.id : '';
 
@@ -201,6 +201,7 @@ export default function EventDetail() {
       toast({ variant: "destructive", title: "Erro ao salvar", description: "Tente novamente mais tarde." });
     } finally {
       setIsSaving(false);
+      await refreshUserData();
     }
   };
 
