@@ -17,7 +17,7 @@ interface ShareButtonProps {
     eventDescription?: string;
 }
 
-export function ShareButton({ eventId, eventTitle, eventDescription }: ShareButtonProps) {
+export function ShareButton({ eventId, eventTitle }: ShareButtonProps) {
     const [copied, setCopied] = useState(false);
     const { toast } = useToast();
 
@@ -37,7 +37,7 @@ export function ShareButton({ eventId, eventTitle, eventDescription }: ShareButt
                 description: "O link do evento foi copiado para a área de transferência"
             });
             setTimeout(() => setCopied(false), 2000);
-        } catch (error) {
+        } catch {
             toast({
                 variant: "destructive",
                 title: "Erro ao copiar",

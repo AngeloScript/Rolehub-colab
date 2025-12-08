@@ -6,10 +6,9 @@ import Link from 'next/link';
 import { Heart, Users, Loader2 } from 'lucide-react';
 import { type Event } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import type { User } from '@/lib/types';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Skeleton } from './ui/skeleton';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
@@ -23,7 +22,7 @@ type EventCardProps = {
 export function EventCard({ event, isSaved: initialIsSaved }: EventCardProps) {
   const [isSaved, setIsSaved] = useState(initialIsSaved);
   const [isSaving, setIsSaving] = useState(false);
-  const { user: authUser, userData } = useAuth();
+  const { user: authUser } = useAuth();
   const { toast } = useToast();
 
   const [isLive, setIsLive] = useState(false);
@@ -52,32 +51,57 @@ export function EventCard({ event, isSaved: initialIsSaved }: EventCardProps) {
 
     setIsSaving(true);
     try {
-      let newSavedEvents = [...(userData?.savedEvents || [])];
+      // Fetch fresh data to avoid race conditions
+      const { data: currentUserData, error: fetchError } = await supabase
+        .from('users')
+        .select('saved_events')
+        .eq('id', authUser.id)
+        .single();
 
-      if (isSaved) {
-        newSavedEvents = newSavedEvents.filter(id => id !== event.id);
+      if (fetchError) {
+        console.error('Error fetching saved events:', JSON.stringify(fetchError, null, 2));
+        throw new Error(`Fetch error: ${JSON.stringify(fetchError)}`);
+      }
+      if (!currentUserData) {
+        console.error('No user data returned for saved events');
+        throw new Error('User data not found');
+      }
+      const currentSavedEvents = currentUserData.saved_events || [];
+
+      const isCurrentlySaved = currentSavedEvents.includes(event.id);
+      let newSavedEvents: string[];
+
+      if (isCurrentlySaved) {
+        newSavedEvents = currentSavedEvents.filter((id: string) => id !== event.id);
         toast({ title: "Evento removido dos salvos" });
+        setIsSaved(false);
       } else {
-        newSavedEvents.push(event.id);
+        newSavedEvents = [...currentSavedEvents, event.id];
         toast({ title: "Evento salvo com sucesso!" });
+        setIsSaved(true);
       }
 
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('users')
         .update({ saved_events: newSavedEvents })
         .eq('id', authUser.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      setIsSaved(!isSaved);
-      // fetchUserData(); // Refresh user data to reflect changes - useAuth should handle this via subscription or re-mount
-    } catch (error) {
-      console.error("Error toggling save state:", error);
-      toast({ variant: "destructive", title: "Erro ao salvar", description: "Tente novamente mais tarde." });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (_error: any) {
+      console.error("Error toggling save state:", JSON.stringify(_error, null, 2));
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: _error?.message || "Tente novamente mais tarde."
+      });
+      // Revert optimistic update on error
+      setIsSaved(isSaved);
     } finally {
       setIsSaving(false);
     }
-  }, [authUser, event.id, isSaved, isSaving, toast, userData]);
+  }, [authUser, event.id, isSaved, isSaving, toast]);
 
   const cardStyle = {
     '--event-primary-color': event.primaryColor ? `hsl(${event.primaryColor})` : 'hsl(var(--primary))',
@@ -104,8 +128,22 @@ export function EventCard({ event, isSaved: initialIsSaved }: EventCardProps) {
             priority={true}
           />
           <div className="absolute top-2 right-2 bg-background/70 backdrop-blur-sm p-1.5 rounded-md font-headline text-primary text-center leading-none">
-            <p className="text-base font-bold">{event.date.split(' ')[0]}</p>
-            <p className="text-[10px] uppercase tracking-wider">{event.date.split(' ')[1]}</p>
+            <p className="text-base font-bold">
+              {(() => {
+                try {
+                  // If event.date is "DD MMM" format from earlier regex or ISO, try to handle
+                  // But simplify: just try to parse via Date or split
+                  const d = new Date(event.date);
+                  if (isNaN(d.getTime())) {
+                    // Fallback for "DD MMM" string if it's not full date
+                    return event.date.split(' ')[0] + ' ' + (event.date.split(' ')[1] || '');
+                  }
+                  return format(d, "dd MMM", { locale: ptBR }).toUpperCase();
+                } catch {
+                  return event.date.split(' ')[0];
+                }
+              })()}
+            </p>
           </div>
           {isLive && (
             <div className="absolute top-2 left-2 bg-red-600/80 backdrop-blur-sm px-2 py-1 rounded-md font-bold text-xs text-white uppercase tracking-widest animate-pulse">
@@ -117,7 +155,7 @@ export function EventCard({ event, isSaved: initialIsSaved }: EventCardProps) {
           <h3 className="text-lg font-headline font-bold text-foreground group-hover:text-[var(--event-primary-color)] transition-colors leading-tight">
             {event.title}
           </h3>
-          <p className="text-xs text-muted-foreground -mt-2">{event.time} @ {event.locationName}</p>
+          <p className="text-xs text-muted-foreground -mt-2">{event.locationName}</p>
 
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="w-4 h-4" />
@@ -137,8 +175,7 @@ export function EventCard({ event, isSaved: initialIsSaved }: EventCardProps) {
                 "flex items-center justify-center w-9 h-9 rounded-full transition-all duration-300",
                 isSaved ? "bg-[var(--event-primary-color)] text-primary-foreground" : "bg-muted text-[var(--event-primary-color)]",
               )}
-              aria-label="Salvar evento"
-              whileTap={{ scale: 0.9 }}
+              /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
               whileHover={{ scale: 1.1 }}
               disabled={isSaving}
             >

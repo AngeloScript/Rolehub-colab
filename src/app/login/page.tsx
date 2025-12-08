@@ -45,20 +45,21 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       });
 
-      if (signInError) throw signInError;
+      if (error) throw error;
 
       router.push('/events');
-    } catch (err: any) {
-      if (err.message === 'Invalid login credentials') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error.message === 'Invalid login credentials') {
         setError("Email ou senha inválidos. Por favor, tente novamente.");
       } else {
         setError("Ocorreu um erro inesperado. Tente novamente mais tarde.");
-        console.error(err);
+        console.error(error);
       }
     } finally {
       setIsLoading(false);
@@ -82,7 +83,7 @@ export default function LoginPage() {
         title: "Email de redefinição enviado",
         description: "Verifique sua caixa de entrada para redefinir sua senha.",
       });
-    } catch (error: any) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Erro ao enviar email",

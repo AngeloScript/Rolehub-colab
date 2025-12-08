@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { motion } from 'framer-motion';
-import type { Comment, User, Event } from '@/lib/types';
+import type { Comment, Event } from '@/lib/types';
 
 import { EventHeader } from '@/components/event/EventHeader';
 import { EventInfo } from '@/components/event/EventInfo';
@@ -89,6 +89,8 @@ export default function EventDetail() {
         if (attendeesData) {
           mappedEvent.confirmedAttendees = attendeesData.map(a => a.user_id);
           mappedEvent.participants = attendeesData.length;
+        } else {
+          mappedEvent.participants = 0;
         }
 
         setEvent(mappedEvent);
@@ -124,19 +126,48 @@ export default function EventDetail() {
   }, [eventId, authLoading, toast]);
 
   const handleVoteVibe = async (type: 'hot' | 'cold') => {
-    if (vibeVote || !event || !authUser) return;
-    setVibeVote(type);
+    if (!event || !authUser) return;
 
-    const newVibes = { ...event.vibes };
-    newVibes[type] = (newVibes[type] || 0) + 1;
+    try {
+      // Fetch current vibes data
+      const { data: currentEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('vibes')
+        .eq('id', event.id)
+        .single();
 
-    // Optimistic update
-    setEvent({ ...event, vibes: newVibes });
+      if (fetchError) throw fetchError;
 
-    await supabase
-      .from('events')
-      .update({ vibes: newVibes })
-      .eq('id', event.id);
+      const currentVibes = currentEvent.vibes || { hot: 0, cold: 0 };
+      const newVibes = { ...currentVibes };
+
+      // If user already voted for this type, do nothing
+      if (vibeVote === type) return;
+
+      // If user is changing vote, decrement old vote
+      if (vibeVote) {
+        newVibes[vibeVote] = Math.max(0, (newVibes[vibeVote] || 0) - 1);
+      }
+
+      // Increment new vote
+      newVibes[type] = (newVibes[type] || 0) + 1;
+
+      // Update database
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ vibes: newVibes })
+        .eq('id', event.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setVibeVote(type);
+      setEvent({ ...event, vibes: newVibes });
+
+    } catch (error) {
+      console.error("Error voting vibe:", error);
+      toast({ variant: 'destructive', title: 'Erro ao votar' });
+    }
   }
 
   const handleSaveToggle = async () => {
@@ -323,9 +354,10 @@ export default function EventDetail() {
 
         setComments(prev => [mappedComment, ...prev]);
 
-      } catch (error) {
-        console.error("Error posting comment:", error);
-        toast({ variant: 'destructive', title: 'Erro ao postar comentário.' });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (error: any) {
+        console.error("Error posting comment:", JSON.stringify(error, null, 2));
+        toast({ variant: 'destructive', title: 'Erro ao postar comentário.', description: error?.message || "Verifique o console para mais detalhes." });
       } finally {
         setIsPostingComment(false);
       }
@@ -377,24 +409,7 @@ export default function EventDetail() {
     }
   };
 
-  const handleShare = () => {
-    if (navigator.share && event) {
-      navigator.share({
-        title: event.title,
-        text: `Confira o evento: ${event.title}`,
-        url: window.location.href
-      }).then(() => {
-        toast({ title: "Evento compartilhado!" });
-      }).catch(err => {
-        console.error("Error sharing:", err);
-        navigator.clipboard.writeText(window.location.href);
-        toast({ title: "Link do evento copiado para a área de transferência!" });
-      })
-    } else if (event) {
-      navigator.clipboard.writeText(window.location.href);
-      toast({ title: "Link do evento copiado para a área de transferência!" });
-    }
-  };
+
 
   const isOrganizer = authUser?.id === event?.organizerId;
   const [isEventTodayClient, setIsEventTodayClient] = useState(false);
@@ -442,124 +457,129 @@ export default function EventDetail() {
     notFound();
   }
 
-  const dynamicStyles = {
-    '--page-primary': event.primaryColor || 'var(--primary)',
-    '--page-secondary': event.secondaryColor || 'var(--secondary)',
-  } as React.CSSProperties;
-
+  const themeId = `event-theme-${event.id}`;
 
   return (
-    <div style={dynamicStyles}>
-      <ClientOnly>
-        <motion.div
-          className="min-h-screen bg-background text-foreground pb-24 md:pb-0 relative overflow-hidden"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-        >
-          <div className="absolute inset-0 z-0 opacity-50">
-            <motion.div
-              className="absolute inset-[-200%] w-[400%] h-[400%] bg-[radial-gradient(circle_farthest-side_at_50%_50%,hsl(var(--page-primary)/0.15),transparent)]"
-              animate={{
-                transform: [
-                  'translate(-50%, -50%) rotate(0deg) scale(1)',
-                  'translate(-50%, -50%) rotate(180deg) scale(1.2)',
-                  'translate(-50%, -50%) rotate(360deg) scale(1)',
-                ],
-              }}
-              transition={{
-                duration: 40,
-                ease: 'easeInOut',
-                repeat: Infinity,
-                repeatType: 'mirror',
-              }}
-            />
-            <motion.div
-              className="absolute inset-[-200%] w-[400%] h-[400%] bg-[radial-gradient(circle_farthest-side_at_50%_50%,hsl(var(--page-secondary)/0.1),transparent)]"
-              animate={{
-                transform: [
-                  'translate(-50%, -50%) rotate(0deg) scale(1)',
-                  'translate(-50%, -50%) rotate(-180deg) scale(1.3)',
-                  'translate(-50%, -50%) rotate(-360deg) scale(1)',
-                ],
-              }}
-              transition={{
-                duration: 50,
-                ease: 'easeInOut',
-                repeat: Infinity,
-                repeatType: 'mirror',
-                delay: 5,
-              }}
-            />
-          </div>
+    <>
+      <style>{`
+        .${themeId} {
+          --page-primary: ${event.primaryColor || 'var(--primary)'};
+          --page-secondary: ${event.secondaryColor || 'var(--secondary)'};
+        }
+      `}</style>
+      <div className={themeId}>
+        <ClientOnly>
+          <motion.div
+            className="min-h-screen bg-background text-foreground pb-24 md:pb-0 relative overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+          >
+            <div className="absolute inset-0 z-0 opacity-50">
+              <motion.div
+                className="absolute inset-[-200%] w-[400%] h-[400%] bg-[radial-gradient(circle_farthest-side_at_50%_50%,hsl(var(--page-primary)/0.15),transparent)]"
+                animate={{
+                  transform: [
+                    'translate(-50%, -50%) rotate(0deg) scale(1)',
+                    'translate(-50%, -50%) rotate(180deg) scale(1.2)',
+                    'translate(-50%, -50%) rotate(360deg) scale(1)',
+                  ],
+                }}
+                transition={{
+                  duration: 40,
+                  ease: 'easeInOut',
+                  repeat: Infinity,
+                  repeatType: 'mirror',
+                }}
+              />
+              <motion.div
+                className="absolute inset-[-200%] w-[400%] h-[400%] bg-[radial-gradient(circle_farthest-side_at_50%_50%,hsl(var(--page-secondary)/0.1),transparent)]"
+                animate={{
+                  transform: [
+                    'translate(-50%, -50%) rotate(0deg) scale(1)',
+                    'translate(-50%, -50%) rotate(-180deg) scale(1.3)',
+                    'translate(-50%, -50%) rotate(-360deg) scale(1)',
+                  ],
+                }}
+                transition={{
+                  duration: 50,
+                  ease: 'easeInOut',
+                  repeat: Infinity,
+                  repeatType: 'mirror',
+                  delay: 5,
+                }}
+              />
+            </div>
 
-          <div className="relative z-10">
-            <EventHeader
-              event={event}
-              isOrganizer={isOrganizer}
-              onDelete={handleDeleteEvent}
-            />
+            <div className="relative z-10">
+              <EventHeader
+                event={event}
+                isOrganizer={isOrganizer}
+                onDelete={handleDeleteEvent}
+              />
 
-            <main className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto p-4 md:p-6">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-                  <div className="flex-grow w-full">
-                    <EventInfo
-                      event={event}
-                      isEventToday={isEventTodayClient}
-                      isCheckedIn={isCheckedIn}
-                      authUser={userData}
-                      onCheckIn={handleCheckIn}
+              <main className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto p-4 md:p-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                    <div className="flex-grow w-full">
+                      <EventInfo
+                        event={event}
+                        isEventToday={isEventTodayClient}
+                        isCheckedIn={isCheckedIn}
+                        authUser={userData}
+                        onCheckIn={handleCheckIn}
+                      />
+                    </div>
+                    <EventActions
+                      eventId={event.id}
+                      eventTitle={event.title}
+                      eventDescription={event.description}
+                      isGoing={isGoing}
+                      isConfirming={isConfirming}
+                      isSaved={isSaved}
+                      isSaving={isSaving}
+                      onToggleGoing={handleGoingToggle}
+                      onToggleSave={handleSaveToggle}
                     />
                   </div>
-                  <EventActions
-                    eventId={event.id}
-                    eventTitle={event.title}
-                    eventDescription={event.description}
+
+                  <Separator className="bg-border/20" />
+
+                  <EventLocation event={event} />
+
+                  <EventGallery eventId={event.id} eventDate={event.date} />
+
+                  <EventComments
+                    event={event}
+                    comments={comments}
+                    authUser={userData}
+                    onPostComment={handlePostComment}
+                    onLikeComment={handleLikeComment}
+                    isPostingComment={isPostingComment}
                     isGoing={isGoing}
-                    isConfirming={isConfirming}
-                    isSaved={isSaved}
-                    isSaving={isSaving}
-                    onToggleGoing={handleGoingToggle}
-                    onToggleSave={handleSaveToggle}
                   />
                 </div>
 
-                <Separator className="bg-border/20" />
+                <div className="space-y-6">
+                  <EventCountdown eventDate={event.fullDate || event.date} eventTime={event.time} />
 
-                <EventLocation event={event} />
+                  <EventAttendees eventId={event.id} />
 
-                <EventGallery eventId={event.id} eventDate={event.date} />
+                  <EventVibeCheck
+                    event={event}
+                    vibes={event.vibes}
+                    vibeVote={vibeVote}
+                    onVote={handleVoteVibe}
+                    authUser={authUser}
+                  />
 
-                <EventComments
-                  event={event}
-                  comments={comments}
-                  authUser={userData}
-                  onPostComment={handlePostComment}
-                  onLikeComment={handleLikeComment}
-                  isPostingComment={isPostingComment}
-                  isGoing={isGoing}
-                />
-              </div>
-
-              <div className="space-y-6">
-                <EventCountdown eventDate={event.fullDate || event.date} eventTime={event.time} />
-
-                <EventAttendees eventId={event.id} />
-
-                <EventVibeCheck
-                  event={event}
-                  vibeVote={vibeVote}
-                  onVote={handleVoteVibe}
-                  authUser={authUser}
-                />
-
-                <EventTips />
-              </div>
-            </main>
-          </div>
-        </motion.div>
-      </ClientOnly>
-    </div>
+                  <EventTips />
+                </div>
+              </main>
+            </div>
+          </motion.div>
+        </ClientOnly>
+      </div>
+    </>
   );
 }

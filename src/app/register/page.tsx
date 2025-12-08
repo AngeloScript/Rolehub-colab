@@ -47,7 +47,7 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
@@ -58,7 +58,7 @@ export default function RegisterPage() {
         }
       });
 
-      if (authError) throw authError;
+      if (signUpError) throw signUpError;
 
       // Note: User creation in 'users' table is handled by Supabase Trigger (handle_new_user)
       // We don't need to manually insert into 'users' table here anymore.
@@ -69,12 +69,13 @@ export default function RegisterPage() {
       });
       router.push('/login');
 
-    } catch (err: any) {
-      if (err.message === 'User already registered') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error.message === 'User already registered') {
         setError("Este email já está em uso. Tente fazer login.");
       } else {
         setError("Ocorreu um erro inesperado durante o cadastro.");
-        console.error(err);
+        console.error(error);
       }
     } finally {
       setIsLoading(false);

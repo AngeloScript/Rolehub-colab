@@ -36,6 +36,7 @@ const TabsTrigger = React.forwardRef<
     {...props}
   >
     {props.children}
+    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
     {(props as any)["data-state"] === "active" && (
       <motion.div
         layoutId="active-tab-indicator"
@@ -45,10 +46,8 @@ const TabsTrigger = React.forwardRef<
 ))
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
-const TabsContent = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
->(({ className, ...props }, ref) => (
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const TabsContent = React.forwardRef<React.ElementRef<typeof TabsPrimitive.Content>, React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content> & { value: any }>(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
     className={cn(

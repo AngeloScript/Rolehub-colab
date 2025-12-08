@@ -1,9 +1,8 @@
-
 "use client";
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Users, LogOut, MessageCircle, PlusSquare, Bell, User as UserIcon, Calendar } from 'lucide-react';
+import { Home, Users, LogOut, MessageCircle, PlusSquare, Bell, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import { RoleHubAnimatedLogo } from '../RoleHubAnimatedLogo';
@@ -31,7 +30,7 @@ export function SidebarNav() {
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const { user: authUser, userData, loading } = useAuth();
+  const { userData, loading } = useAuth();
 
 
   useEffect(() => {

@@ -77,9 +77,10 @@ export default function ResetPasswordPage() {
                 router.push('/events');
             }, 2000);
 
-        } catch (err: any) {
-            console.error("Error resetting password:", err);
-            setError(err.message || "Erro ao redefinir senha. O link pode ter expirado.");
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (error: any) {
+            console.error("Error resetting password:", error);
+            setError(error.message || "Erro ao redefinir senha. O link pode ter expirado.");
         } finally {
             setIsLoading(false);
         }

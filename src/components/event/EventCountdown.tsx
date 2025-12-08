@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { differenceInSeconds, formatDuration, intervalToDuration, Duration } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInSeconds, intervalToDuration, Duration } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Timer } from 'lucide-react';
 

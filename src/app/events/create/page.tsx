@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -17,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { generateEventDetails, GenerateEventDetailsInput } from "@/ai/flows/generate-event-details";
-import { generateEventTheme } from "@/ai/flows/generate-event-theme";
+
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/lib/supabase";
@@ -31,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { DynamicColorCircle } from "@/components/DynamicColorCircle";
 
 const DynamicEventMapCreator = dynamic(() => import('@/components/EventMapCreator'), {
   ssr: false,
@@ -64,10 +64,10 @@ const PREDEFINED_TAGS = [
 export default function CreateEventPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isGeneratingTheme, setIsGeneratingTheme] = useState(false);
+  const [isGeneratingTheme] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [themeColors, setThemeColors] = useState<{ primary: string; background: string; secondary: string; } | null>(null);
+  const [themeColors] = useState<{ primary: string; background: string; secondary: string; } | null>(null);
   const [customTag, setCustomTag] = useState("");
   const router = useRouter();
   const { toast } = useToast();
@@ -109,34 +109,8 @@ export default function CreateEventPage() {
     }
   };
 
-  const generateThemeFromImage = async (imageDataUri: string) => {
-    setIsGeneratingTheme(true);
-    setThemeColors(null);
-    try {
-      const result = await generateEventTheme({ imageDataUri });
-      setThemeColors({
-        primary: result.primaryColor,
-        background: result.backgroundColor,
-        secondary: result.secondaryColor,
-      });
-      form.setValue('primaryColor', result.primaryColor);
-      form.setValue('backgroundColor', result.backgroundColor);
-      form.setValue('secondaryColor', result.secondaryColor);
-      toast({
-        title: "Tema de cores gerado!",
-        description: "Analisamos seu banner para criar uma paleta exclusiva.",
-      });
-    } catch (error) {
-      console.error("Error generating theme:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro na IA do Tema",
-        description: "Não foi possível gerar as cores. Usaremos o tema padrão.",
-      });
-    } finally {
-      setIsGeneratingTheme(false);
-    }
-  }
+
+
 
 
   const handleAddTag = (tag: string) => {
@@ -337,11 +311,9 @@ export default function CreateEventPage() {
                     <Label>Banner do Evento</Label>
                     <div className="flex items-center gap-4">
                       <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                        {imagePreview ? (
-                          <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
-                        ) : (
-                          <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                        )}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={imagePreview || undefined} alt="Preview" className="w-full h-full object-cover" />
+                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
                       </div>
                       <div className="flex-1 space-y-2">
                         <FormField
@@ -378,12 +350,9 @@ export default function CreateEventPage() {
                           <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
                             <Palette className="w-4 h-4 text-muted-foreground" />
                             <span className="text-xs font-medium text-muted-foreground">Cores do tema:</span>
-                            {/* eslint-disable-next-line react/forbid-dom-props */}
-                            <div className="w-5 h-5 rounded-full dynamic-bg" style={{ '--dynamic-color': themeColors.primary } as React.CSSProperties} />
-                            {/* eslint-disable-next-line react/forbid-dom-props */}
-                            <div className="w-5 h-5 rounded-full dynamic-bg" style={{ '--dynamic-color': themeColors.background } as React.CSSProperties} />
-                            {/* eslint-disable-next-line react/forbid-dom-props */}
-                            <div className="w-5 h-5 rounded-full dynamic-bg" style={{ '--dynamic-color': themeColors.secondary } as React.CSSProperties} />
+                            <DynamicColorCircle color={themeColors.primary} />
+                            <DynamicColorCircle color={themeColors.background} />
+                            <DynamicColorCircle color={themeColors.secondary} />
                           </div>
                         )}
                       </div>

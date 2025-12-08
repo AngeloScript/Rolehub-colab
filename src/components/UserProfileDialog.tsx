@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import Image from "next/image";
 import { Heart, Mail, UserPlus, MessageCircle, Loader2, Check, PartyPopper } from "lucide-react";
 import { Button } from './ui/button';
-import { cn } from '@/lib/utils';
+
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +28,7 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
   const [isUpdatingFollow, setIsUpdatingFollow] = useState(false);
   const [user, setUser] = useState<User | undefined>(initialUser);
   const [isLoadingUser, setIsLoadingUser] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [organizedEvents, setOrganizedEvents] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
 
@@ -46,6 +47,7 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
         if (fetchedUser) {
           setUser(fetchedUser as User);
 
+          // Fetch organized events
           // Fetch organized events
           const { data: eventsData } = await supabase
             .from('events')
@@ -92,46 +94,96 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
   const handleFollowToggle = async () => {
     if (!authUser || !user || authUser.id === user.id) return;
 
+    // Prevent multiple clicks while updating
+    if (isUpdatingFollow) return;
+
     setIsUpdatingFollow(true);
 
     try {
-      let newFollowing = [...(userData?.following || [])];
-      let newFollowers = user.followers || 0;
+      // Get fresh data to avoid race conditions
+      const { data: currentUserData, error: currentUserError } = await supabase
+        .from('users')
+        .select('following')
+        .eq('id', authUser.id)
+        .single();
 
-      if (isFollowing) {
-        newFollowing = newFollowing.filter(id => id !== user.id);
-        newFollowers = Math.max(0, newFollowers - 1);
+      if (currentUserError) throw currentUserError;
+
+      const { data: targetUserData, error: targetUserError } = await supabase
+        .from('users')
+        .select('followers')
+        .eq('id', user.id)
+        .single();
+
+      if (targetUserError) throw targetUserError;
+
+      const currentFollowing = currentUserData.following || [];
+      const currentFollowers = targetUserData.followers || 0;
+
+      const isCurrentlyFollowing = currentFollowing.includes(user.id);
+
+      let newFollowing: string[];
+      let newFollowers: number;
+
+      if (isCurrentlyFollowing) {
+        // Unfollow
+        newFollowing = currentFollowing.filter((id: string) => id !== user.id);
+        newFollowers = Math.max(0, currentFollowers - 1);
         toast({ title: `Você deixou de seguir ${user.name}` });
+        setIsFollowing(false);
       } else {
-        newFollowing.push(user.id);
-        newFollowers += 1;
-        toast({ title: `Agora você está seguindo ${user.name}` });
+        // Follow
+        if (!currentFollowing.includes(user.id)) {
+          newFollowing = [...currentFollowing, user.id];
+          newFollowers = currentFollowers + 1;
+          toast({ title: `Agora você está seguindo ${user.name}` });
+          setIsFollowing(true);
 
-        // Create notification
-        await supabase.from('notifications').insert({
-          user_id: user.id,
-          type: 'new_follower',
-          text: `<strong>${userData?.name}</strong> começou a seguir você.`,
-          read: false,
-          sender_name: userData?.name || 'Alguém',
-          sender_avatar: userData?.avatar || '',
-          link: `/profile`
-        });
+          // Create notification only if not already following
+          await supabase.from('notifications').insert({
+            user_id: user.id,
+            type: 'new_follower',
+            text: `<strong>${userData?.name}</strong> começou a seguir você.`,
+            read: false,
+            sender_name: userData?.name || 'Alguém',
+            sender_avatar: userData?.avatar || '',
+            link: `/profile/${authUser.id}`
+          });
+        } else {
+          // Already following, shouldn't happen but safe guard
+          newFollowing = currentFollowing;
+          newFollowers = currentFollowers;
+        }
       }
 
       // Update current user following
-      await supabase.from('users').update({ following: newFollowing }).eq('id', authUser.id);
+      const { error: updateFollowingError } = await supabase
+        .from('users')
+        .update({ following: newFollowing })
+        .eq('id', authUser.id);
+
+      if (updateFollowingError) throw updateFollowingError;
 
       // Update target user followers count
-      await supabase.from('users').update({ followers: newFollowers }).eq('id', user.id);
+      // Update target user followers count (Best effort)
+      try {
+        const { error: updateFollowersError } = await supabase
+          .from('users')
+          .update({ followers: newFollowers })
+          .eq('id', user.id);
 
-      // Optimistic update local state if needed, but useAuth should handle userData update
-      // We might need to update the 'user' state locally for followers count
+        if (updateFollowersError) console.warn("Could not update followers count (RLS?):", updateFollowersError);
+      } catch (err) {
+        console.warn("Could not update followers count:", err);
+      }
+
+      // Update local user state for UI
       setUser(prev => prev ? ({ ...prev, followers: newFollowers }) : undefined);
 
     } catch (error) {
-      console.error("Error updating follow status:", error);
+      console.error('Error updating follow status:', JSON.stringify(error, null, 2));
       toast({ variant: 'destructive', title: 'Erro ao seguir usuário' });
+      // Revert state on error if needed, but fetching fresh data minimizes this need
     } finally {
       setIsUpdatingFollow(false);
     }
@@ -180,15 +232,15 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
           </div>
         </DialogHeader>
         <div className="py-4 text-center">
-          <p className="italic text-muted-foreground">"{user.bio}"</p>
+          <p className="italic text-muted-foreground">&quot;{user.bio}&quot;</p>
           <div className="flex items-center justify-center gap-4 mt-4">
             <div className="text-center">
               <p className="font-bold text-lg">{user.following?.length || 0}</p>
-              <p className="text-sm text-muted-foreground">Seguindo</p>
-            </div>
+              <p className="text-muted-foreground">Este usuário ainda não participou de nenhum rolê.</p></div>
             <div className="text-center">
-              <p className="font-bold text-lg">{user.followers || 0}</p>
-              <p className="text-sm text-muted-foreground">Seguidores</p>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              <span className="font-bold text-foreground">{(user as any).followers || 0}</span>
+              <p className="text-sm text-muted-foreground">&quot;Adoro festivais de música e conhecer gente nova!&quot;</p>
             </div>
           </div>
         </div>

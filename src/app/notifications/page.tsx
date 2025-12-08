@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from 'react';
+
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,7 +32,7 @@ const formatNotificationTime = (notif: Notification) => {
     if (notif.timestamp) {
         try {
             return formatDistanceToNow(parseISO(notif.timestamp), { addSuffix: true, locale: ptBR });
-        } catch (e) {
+        } catch {
             return notif.time;
         }
     }

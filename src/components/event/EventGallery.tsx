@@ -18,12 +18,14 @@ interface EventGalleryProps {
 interface Photo {
     id: string;
     url: string;
-    authorId: string;
+    caption?: string;
+    user_id: string;
     authorName: string;
-    timestamp: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    created_at: any;
 }
 
-export function EventGallery({ eventId, eventDate }: EventGalleryProps) {
+export function EventGallery({ eventId }: EventGalleryProps) {
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
@@ -41,13 +43,16 @@ export function EventGallery({ eventId, eventDate }: EventGalleryProps) {
             if (error) {
                 console.error("Error fetching photos:", error);
             } else if (data) {
-                setPhotos(data.map(p => ({
-                    id: p.id,
-                    url: p.url,
-                    authorId: p.author_id,
-                    authorName: p.author_name,
-                    timestamp: p.created_at
-                })));
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const photos = data.map((photo: any) => ({
+                    id: photo.id,
+                    url: photo.url,
+                    user_id: photo.user_id,
+                    authorName: photo.author_name || 'Usuário',
+                    created_at: photo.created_at,
+                    caption: photo.caption
+                }));
+                setPhotos(photos);
             }
             setIsLoading(false);
         };
@@ -77,7 +82,7 @@ export function EventGallery({ eventId, eventDate }: EventGalleryProps) {
                 .insert({
                     event_id: eventId,
                     url: urlData.publicUrl,
-                    author_id: user.id,
+                    user_id: user.id,
                     author_name: user.user_metadata?.name || 'Anônimo'
                 });
 

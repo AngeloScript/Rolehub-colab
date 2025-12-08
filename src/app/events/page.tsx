@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Filter, List, Map, X as XIcon, Loader2 } from 'lucide-react';
+import { Search, Filter, List, Map, X as XIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { EventCard } from '@/components/EventCard';
@@ -16,10 +16,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PageHeader } from '@/components/PageHeader';
 import { supabase } from '@/lib/supabase';
-import type { Event, User } from '@/lib/types';
+import type { Event } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
-import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -117,14 +116,10 @@ export default function EventFeed() {
     return filteredEvents.filter(event => typeof event.latitude === 'number' && typeof event.longitude === 'number');
   }, [filteredEvents]);
 
-  const scrollToTop = () => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
 
   return (
     <AppLayout>
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col min-h-screen">
         <div className="md:hidden">
           <PageHeader title="Eventos" />
         </div>
@@ -193,7 +188,7 @@ export default function EventFeed() {
           <div className="md:hidden flex items-center gap-2 pt-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full flex-shrink-0 border-primary text-primary hover:bg-primary/10 h-10">
+                <Button variant="outline" className="flex-1 flex-shrink-0 border-primary text-primary hover:bg-primary/10 h-10">
                   <Filter className="w-5 h-5 mr-2" />
                   Filtrar Eventos
                 </Button>
@@ -228,7 +223,7 @@ export default function EventFeed() {
           </div>
         </header>
 
-        <div className="flex-grow flex flex-col overflow-hidden">
+        <div className="flex-grow flex flex-col">
           <AnimatePresence mode="wait">
             {view === 'list' ? (
               <motion.div
@@ -237,7 +232,7 @@ export default function EventFeed() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -15 }}
                 transition={{ duration: 0.2 }}
-                className="flex-grow overflow-y-auto"
+                className="flex-grow"
                 ref={scrollRef}
               >
                 <div className="p-4 pt-4 pb-24 md:pb-4 space-y-6">

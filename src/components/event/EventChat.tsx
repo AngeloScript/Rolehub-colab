@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, MessageCircle as MessageCircleSolid, PartyPopper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,7 +22,7 @@ const formatRelativeTime = (isoString: string) => {
     try {
         const date = parseISO(isoString);
         return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
-    } catch (error) {
+    } catch {
         return "agora mesmo";
     }
 };
@@ -38,7 +38,7 @@ const linkify = (text: string) => {
 };
 
 export function EventChat({ eventId, isGoing }: EventChatProps) {
-    const { user: authUser, userData, loading: authLoading } = useAuth();
+    const { user: authUser, loading: authLoading } = useAuth();
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -54,7 +54,7 @@ export function EventChat({ eventId, isGoing }: EventChatProps) {
         if (!isGoing || !eventId || authLoading || !authUser) return;
 
         const fetchMessages = async () => {
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('chat_messages')
                 .select('*')
                 .eq('event_id', eventId)
@@ -79,6 +79,7 @@ export function EventChat({ eventId, isGoing }: EventChatProps) {
                 if (joinError) {
                     console.error("Error fetching chat with users:", joinError);
                 } else if (dataWithUsers) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const msgs = dataWithUsers.map((msg: any) => ({
                         id: msg.id,
                         senderId: msg.user_id,
@@ -103,17 +104,18 @@ export function EventChat({ eventId, isGoing }: EventChatProps) {
                 table: 'chat_messages',
                 filter: `event_id=eq.${eventId}`
             }, async (payload) => {
-                const newMsg = payload.new as any;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const newMessages = (payload.new as any);
                 // We need to fetch user details for the new message
-                const { data: userData } = await supabase.from('users').select('name, avatar').eq('id', newMsg.user_id).single();
+                const { data: userData } = await supabase.from('users').select('name, avatar').eq('id', newMessages.user_id).single();
 
                 setMessages(prev => [...prev, {
-                    id: newMsg.id,
-                    senderId: newMsg.user_id,
+                    id: newMessages.id,
+                    senderId: newMessages.user_id,
                     author: userData?.name || 'Usuário',
                     avatar: userData?.avatar,
-                    text: newMsg.text,
-                    timestamp: newMsg.created_at
+                    text: newMessages.text,
+                    timestamp: newMessages.created_at
                 }]);
             })
             .subscribe();
@@ -137,8 +139,8 @@ export function EventChat({ eventId, isGoing }: EventChatProps) {
 
                 if (error) throw error;
                 setNewMessage('');
-            } catch (error) {
-                console.error("Error sending message:", error);
+            } catch (_error) {
+                console.error("Error sending message:", _error);
             } finally {
                 setIsSending(false);
             }
@@ -151,7 +153,7 @@ export function EventChat({ eventId, isGoing }: EventChatProps) {
                 <MessageCircleSolid className="w-12 h-12 text-muted-foreground" />
                 <h2 className="text-xl font-bold">Junte-se ao Chat do Rolê!</h2>
                 <p className="text-muted-foreground text-sm max-w-sm">
-                    Confirme sua presença no botão "Eu Vou!" para conversar com outros participantes em tempo real.
+                    Confirme sua presença no botão &quot;Eu Vou!&quot; para conversar com outros participantes em tempo real.
                 </p>
             </div>
         );
@@ -163,7 +165,7 @@ export function EventChat({ eventId, isGoing }: EventChatProps) {
                 <div className="flex-grow flex flex-col items-center justify-center text-center p-8 bg-card/50 rounded-lg">
                     <PartyPopper className="w-12 h-12 text-muted-foreground" />
                     <h2 className="text-xl font-bold mt-4">O chat está começando!</h2>
-                    <p className="text-muted-foreground text-sm">Seja o primeiro a mandar uma mensagem.</p>
+                    <p className="text-muted-foreground">Faça login para participar do chat.</p>
                 </div>
                 <div className="flex items-center gap-2 mt-4">
                     <Textarea

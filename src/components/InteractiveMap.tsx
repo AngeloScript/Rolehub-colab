@@ -1,10 +1,9 @@
-
 "use client";
 
 import 'leaflet/dist/leaflet.css';
 import { type Event } from '@/lib/types';
 import L from 'leaflet';
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import ReactDOMServer from 'react-dom/server';
 import { MapPin } from 'lucide-react';
@@ -30,20 +29,19 @@ const createCustomIcon = (color: string) => {
 
 
 interface InteractiveMapProps {
-  events: Event[];
-  center?: [number, number];
-  zoom?: number;
-  className?: string;
-  singleEvent?: boolean;
+    events: Event[];
+    zoom?: number;
+    className?: string;
+    singleEvent?: boolean;
 }
 
-export function InteractiveMap({ events, center, zoom = 13, className, singleEvent = false }: InteractiveMapProps) {
+export function InteractiveMap({ events, zoom = 13, className, singleEvent = false }: InteractiveMapProps) {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<L.Map | null>(null);
     const markersLayerRef = useRef<L.LayerGroup | null>(null);
     const router = useRouter();
 
-    const defaultCenter: [number, number] = [-23.55052, -46.633308]; // São Paulo
+    const defaultCenter = useMemo(() => ({ lat: -23.5505, lng: -46.6333 }), []); // São Paulo
 
     // Initialize map
     useEffect(() => {
@@ -59,25 +57,25 @@ export function InteractiveMap({ events, center, zoom = 13, className, singleEve
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             }).addTo(map);
 
-             if(singleEvent) {
+            if (singleEvent) {
                 map.dragging.disable();
                 map.touchZoom.disable();
                 map.doubleClickZoom.disable();
                 map.boxZoom.disable();
                 map.keyboard.disable();
-             }
-             
-             mapInstanceRef.current = map;
-             markersLayerRef.current = L.layerGroup().addTo(map);
+            }
+
+            mapInstanceRef.current = map;
+            markersLayerRef.current = L.layerGroup().addTo(map);
         }
-        
+
         return () => {
-             if (mapInstanceRef.current) {
+            if (mapInstanceRef.current) {
                 mapInstanceRef.current.remove();
                 mapInstanceRef.current = null;
             }
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Update markers and view when events change
@@ -95,9 +93,9 @@ export function InteractiveMap({ events, center, zoom = 13, className, singleEve
             validEvents.forEach(event => {
                 const primaryColor = event.primaryColor ? `hsl(${event.primaryColor})` : 'hsl(var(--primary))';
                 const customIcon = createCustomIcon(primaryColor);
-                
+
                 const marker = L.marker([event.latitude!, event.longitude!], { icon: customIcon });
-                
+
                 if (!singleEvent) {
                     const popupContent = document.createElement('div');
                     popupContent.className = 'w-48 p-0 m-0 font-sans';
@@ -110,7 +108,7 @@ export function InteractiveMap({ events, center, zoom = 13, className, singleEve
                     button.innerHTML = "Ver Detalhes";
                     button.className = 'w-full text-center bg-primary text-primary-foreground text-sm font-medium py-2 px-4 rounded-md hover:bg-primary/90 no-underline';
                     button.onclick = () => router.push(`/events/${event.id}`);
-                    
+
                     popupContent.appendChild(button);
 
                     marker.bindPopup(popupContent, {
@@ -126,10 +124,10 @@ export function InteractiveMap({ events, center, zoom = 13, className, singleEve
                     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
                 }
             } else {
-                 map.setView([validEvents[0].latitude!, validEvents[0].longitude!], 15);
+                map.setView([validEvents[0].latitude!, validEvents[0].longitude!], 15);
             }
         } else if (!singleEvent) {
-             map.setView(defaultCenter, zoom);
+            map.setView(defaultCenter, zoom);
         }
 
     }, [events, singleEvent, router, defaultCenter, zoom]);
@@ -140,4 +138,3 @@ export function InteractiveMap({ events, center, zoom = 13, className, singleEve
     );
 }
 
-    

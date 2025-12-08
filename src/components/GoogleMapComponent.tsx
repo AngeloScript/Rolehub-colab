@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -10,12 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Crosshair } from 'lucide-react';
 
 // Fix for default marker icons in Leaflet
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
+
 
 interface GoogleMapComponentProps {
     events: Event[];
@@ -48,6 +50,7 @@ function MapBounds({ events }: { events: Event[] }) {
 function LocateButton() {
     const map = useMap();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleLocate = () => {
         map.locate({ setView: true, maxZoom: 14 });
     };

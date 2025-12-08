@@ -10,7 +10,7 @@ interface QRCodeGeneratorProps {
     eventTitle: string;
 }
 
-export function QRCodeGenerator({ eventId, eventTitle }: QRCodeGeneratorProps) {
+export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
     const checkInUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/events/${eventId}/checkin`
         : '';

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from "./ui/scroll-area";
 import { UserProfileDialog } from "./UserProfileDialog";
 import { Skeleton } from "./ui/skeleton";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from '@/lib/supabase';
 import { Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -34,11 +34,13 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
       setIsLoading(true);
       try {
         // Fetch event details for max participants
-        const { data: eventData } = await supabase
+        const { data: eventData, error: eventError } = await supabase
           .from('events')
           .select('participants, max_participants')
           .eq('id', eventId)
           .single();
+
+        if (eventError) throw eventError;
 
         if (eventData) {
           setParticipantCount(eventData.participants || 0);
@@ -46,16 +48,17 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
         }
 
         // Fetch attendees joined with users
-        const { data: attendeesData, error } = await supabase
+        const { data: attendeesData, error: attendeesError } = await supabase
           .from('attendees')
           .select('user_id, users(*)')
           .eq('event_id', eventId)
           .eq('status', 'confirmed')
           .limit(30);
 
-        if (error) throw error;
+        if (attendeesError) throw attendeesError;
 
         if (attendeesData) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const users = attendeesData.map((a: any) => a.users as User);
           setParticipants(users);
         } else {

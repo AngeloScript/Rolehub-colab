@@ -28,7 +28,7 @@ const formatRelativeTime = (isoString: string) => {
     try {
         const date = parseISO(isoString);
         return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
-    } catch (error) {
+    } catch {
         return "agora mesmo";
     }
 };

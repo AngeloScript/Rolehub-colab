@@ -19,17 +19,31 @@ interface EventInfoProps {
 }
 
 const formatEventDate = (dateString: string) => {
+    if (!dateString) return '';
     try {
+        // Check if it's an ISO string or valid date format
+        const date = new Date(dateString);
+        if (!isNaN(date.getTime())) {
+            return format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+        }
+
+        // Fallback for "DD MMM" format (legacy/AI generated)
         const [day, month] = dateString.split(' ');
+        if (!day || !month) return dateString;
+
         const monthIndex = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'].indexOf(month.toUpperCase());
         if (monthIndex === -1) return dateString;
+
         const year = new Date().getFullYear();
-        const date = new Date(year, monthIndex, parseInt(day));
-        if (date < new Date() && date.getMonth() < new Date().getMonth()) {
-            date.setFullYear(year + 1);
+        const customDate = new Date(year, monthIndex, parseInt(day));
+
+        // If date has passed this year, assume next year
+        if (customDate < new Date() && customDate.getMonth() < new Date().getMonth()) {
+            customDate.setFullYear(year + 1);
         }
-        return format(date, "dd 'de' MMMM", { locale: ptBR });
-    } catch {
+        return format(customDate, "dd 'de' MMMM", { locale: ptBR });
+    } catch (e) {
+        console.error("Error formatting date:", e);
         return dateString;
     }
 }

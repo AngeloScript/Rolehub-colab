@@ -1,15 +1,26 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
-import { User, Message } from '@/lib/types';
+import { User } from '@/lib/types';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface Message {
+    id: string;
+    senderId: string;
+    text: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    timestamp: any;
+    author: string;
+    avatar?: string;
+}
 
 export type ChatConversation = {
     id: string;
     participants: string[];
     lastMessage: string;
-    lastMessageTimestamp: any; // Firestore Timestamp
+    lastMessageTimestamp: string; // Firestore Timestamp
     unread: boolean; // This would need more complex logic in real app
     otherUser?: User; // Enriched data
 };
@@ -45,6 +56,7 @@ export function useChat() {
 
             // If no error and data exists (even if empty array), process it
             if (data !== null) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const convs = await Promise.all(data.map(async (conv: any) => {
                     const otherUserId = conv.participants.find((p: string) => p !== user.id);
                     let otherUser: User | undefined;
@@ -131,7 +143,7 @@ export function useChat() {
                 });
 
             if (error) {
-                console.error("Error creating conversation:", error);
+                console.error("Error creating conversation:", JSON.stringify(error, null, 2));
                 return null;
             }
         }
@@ -188,6 +200,7 @@ export function useMessages(conversationId: string) {
             if (error) {
                 console.error("Error fetching messages:", error);
             } else if (data) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 setMessages(data.map((msg: any) => ({
                     id: msg.id,
                     senderId: msg.sender_id,
@@ -202,6 +215,7 @@ export function useMessages(conversationId: string) {
 
         fetchMessages();
 
+        // Subscribe to NEW messages
         const channel = supabase
             .channel(`messages:${conversationId}`)
             .on('postgres_changes', {
@@ -210,15 +224,20 @@ export function useMessages(conversationId: string) {
                 table: 'direct_messages',
                 filter: `conversation_id=eq.${conversationId}`
             }, (payload) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const newMsg = payload.new as any;
-                setMessages(prev => [...prev, {
-                    id: newMsg.id,
-                    senderId: newMsg.sender_id,
-                    text: newMsg.text,
-                    timestamp: newMsg.created_at,
-                    author: '',
-                    avatar: ''
-                }]);
+                setMessages(prev => {
+                    // Prevent duplicates
+                    if (prev.some(msg => msg.id === newMsg.id)) return prev;
+                    return [...prev, {
+                        id: newMsg.id,
+                        senderId: newMsg.sender_id,
+                        text: newMsg.text,
+                        timestamp: newMsg.created_at,
+                        author: '',
+                        avatar: ''
+                    }];
+                });
             })
             .subscribe();
 
@@ -227,5 +246,5 @@ export function useMessages(conversationId: string) {
         };
     }, [conversationId]);
 
-    return { messages, loading };
+    return { messages, loading, setMessages };
 }

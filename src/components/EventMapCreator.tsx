@@ -9,6 +9,7 @@ import { Button } from './ui/button';
 import { Search } from 'lucide-react';
 
 // Fix para ícones do Leaflet no Next.js
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -37,6 +38,33 @@ export default function EventMapCreator({ onLocationChange, initialAddress }: Ev
   const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
 
 
+  // Atualiza coordenadas quando o marcador é arrastado
+  const handleMarkerDrag = useCallback((e: L.LeafletEvent) => {
+    const marker = e.target as L.Marker;
+    const newPos = marker.getLatLng();
+    const newPosition: [number, number] = [newPos.lat, newPos.lng];
+    setMarkerPosition(newPosition);
+
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newPos.lat}&lon=${newPos.lng}`)
+      .then(res => res.json())
+      .then(data => {
+        const displayAddress = data.display_name || 'Localização ajustada manualmente';
+        setAddress(displayAddress);
+        onLocationChange({
+          lat: newPos.lat,
+          lng: newPos.lng,
+          address: displayAddress
+        });
+      }).catch(error => {
+        console.error('Erro na geocodificação reversa:', error);
+        onLocationChange({
+          lat: newPos.lat,
+          lng: newPos.lng,
+          address: 'Localização ajustada manualmente'
+        });
+      });
+  }, [onLocationChange]);
+
   // Geocodificação: Converte endereço em coordenadas
   const geocodeAddress = useCallback(async (addr: string) => {
     if (!addr.trim()) return;
@@ -52,6 +80,7 @@ export default function EventMapCreator({ onLocationChange, initialAddress }: Ev
         const newPosition: [number, number] = [parseFloat(lat), parseFloat(lon)];
 
         if (mapInstanceRef.current) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           mapInstanceRef.current.setView(newPosition, 15);
         }
 
@@ -76,7 +105,7 @@ export default function EventMapCreator({ onLocationChange, initialAddress }: Ev
       console.error('Erro na geocodificação:', error);
       alert("Ocorreu um erro ao buscar o endereço.");
     }
-  }, [onLocationChange]);
+  }, [onLocationChange, handleMarkerDrag]);
 
   // Handle search on Enter key press
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -84,43 +113,6 @@ export default function EventMapCreator({ onLocationChange, initialAddress }: Ev
       e.preventDefault();
       geocodeAddress(address);
     }
-  };
-
-  // Efeito para geocodificar o endereço inicial ou quando ele muda a partir do "Gerar com IA"
-  useEffect(() => {
-    if (initialAddress) {
-      setAddress(initialAddress);
-      geocodeAddress(initialAddress);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialAddress]);
-
-
-  // Atualiza coordenadas quando o marcador é arrastado
-  const handleMarkerDrag = (e: L.LeafletEvent) => {
-    const marker = e.target as L.Marker;
-    const newPos = marker.getLatLng();
-    const newPosition: [number, number] = [newPos.lat, newPos.lng];
-    setMarkerPosition(newPosition);
-
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newPos.lat}&lon=${newPos.lng}`)
-      .then(res => res.json())
-      .then(data => {
-        const displayAddress = data.display_name || 'Localização ajustada manualmente';
-        setAddress(displayAddress);
-        onLocationChange({
-          lat: newPos.lat,
-          lng: newPos.lng,
-          address: displayAddress
-        });
-      }).catch(error => {
-        console.error('Erro na geocodificação reversa:', error);
-        onLocationChange({
-          lat: newPos.lat,
-          lng: newPos.lng,
-          address: 'Localização ajustada manualmente'
-        });
-      });
   };
 
   // Efeito para inicializar o mapa

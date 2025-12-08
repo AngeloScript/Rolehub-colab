@@ -13,6 +13,7 @@ type AppLayoutProps = {
 // All pages that should have the main app layout (sidebars, etc.)
 const LAYOUT_PAGES = [
     '/events',
+    '/calendar',
     '/search',
     '/events/create',
     '/messages',
@@ -30,7 +31,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     // Pages like login, register, splash screen don't use the main layout
     if (!isLayoutPage) {
         return (
-             <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait">
                 <motion.div
                     key={pathname}
                     initial={{ opacity: 0 }}

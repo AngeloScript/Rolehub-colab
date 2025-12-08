@@ -10,10 +10,7 @@ import { AuthProvider } from '@/hooks/use-auth';
 export const metadata: Metadata = {
   title: 'RoleHub',
   description: 'Encontre seu próximo rolê',
-  icons: {
-    icon: '/favicon.png',
-    apple: '/favicon.png',
-  },
+
 };
 
 const fontInter = Inter({

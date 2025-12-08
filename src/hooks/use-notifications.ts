@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
-import type { Notification } from '@/lib/types';
+import type { Notification, User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 export function useNotifications() {
@@ -34,6 +34,7 @@ export function useNotifications() {
             }
 
             if (data) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const mappedNotifications: Notification[] = data.map((n: any) => ({
                     id: n.id,
                     type: n.type,
@@ -53,10 +54,10 @@ export function useNotifications() {
                         following: [],
                         followers: 0,
                         checkIns: 0
-                    } as any // Cast to any to avoid strict User type check for now, or update Notification type
+                    } as unknown as User // Cast to unknown then User to avoid strict type check for now
                 }));
                 setNotifications(mappedNotifications);
-                setUnreadCount(mappedNotifications.filter((n: any) => !n.read).length);
+                setUnreadCount(mappedNotifications.filter((n) => !n.read).length);
             }
             setLoading(false);
         };

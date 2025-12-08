@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AppLayout } from '@/components/layout/AppLayout';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 export default function ChatPage() {
     const params = useParams();
     const router = useRouter();
-    const { user: authUser } = useAuth();
+    const { userData: authUser } = useAuth();
     const { getOrCreateConversation, sendMessage } = useChat();
 
     const otherUserId = typeof params.id === 'string' ? params.id : '';
@@ -27,14 +27,14 @@ export default function ChatPage() {
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
 
-    const { messages, loading: messagesLoading } = useMessages(conversationId || '');
+    const { messages, setMessages } = useMessages(conversationId || '');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const initChat = async () => {
             if (authUser && otherUserId) {
                 // Fetch other user details
-                const { data: userSnap, error } = await supabase
+                const { data: userSnap } = await supabase
                     .from('users')
                     .select('*')
                     .eq('id', otherUserId)
@@ -62,7 +62,7 @@ export default function ChatPage() {
             }
         };
         initChat();
-    }, [authUser, otherUserId]);
+    }, [authUser, otherUserId, getOrCreateConversation]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -70,14 +70,31 @@ export default function ChatPage() {
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (!newMessage.trim() || !conversationId) return;
+        if (!newMessage.trim() || !conversationId || !authUser) return;
 
         setIsSending(true);
+
+        // Optimistic update
+        const tempId = `temp-${Date.now()}`;
+        const optimisticMessage = {
+            id: tempId,
+            senderId: authUser.id,
+            text: newMessage,
+            timestamp: new Date().toISOString(),
+            author: authUser.name || '',
+            avatar: authUser.avatar || ''
+        };
+
+        setMessages(prev => [...prev, optimisticMessage]);
+        setNewMessage('');
+
         try {
-            await sendMessage(conversationId, newMessage);
-            setNewMessage('');
+            await sendMessage(conversationId, optimisticMessage.text);
+            // The real message will come via subscription and replace/deduplicate
         } catch (error) {
             console.error("Error sending message:", error);
+            // Remove optimistic message on error
+            setMessages(prev => prev.filter(msg => msg.id !== tempId));
         } finally {
             setIsSending(false);
         }

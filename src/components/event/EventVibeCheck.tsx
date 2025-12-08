@@ -4,13 +4,15 @@ import React from 'react';
 import { Flame, Snowflake, ThumbsUp, ThumbsDown, PartyPopper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { User } from '@/lib/types';
 import { Event } from '@/lib/types';
 
 interface EventVibeCheckProps {
     event: Event;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vibes: any;
     vibeVote: 'hot' | 'cold' | null;
     onVote: (type: 'hot' | 'cold') => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     authUser: any; // Using any to be flexible with Firebase User vs Custom User, or strictly User | null
 }
 

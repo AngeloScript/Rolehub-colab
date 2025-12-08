@@ -7,9 +7,9 @@
  * - SuggestEventsOutput - The return type for the suggestEvents function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'zod';
-import type { Event } from '@/lib/types';
+import { ai } from '@/ai/genkit';
+import { z } from 'zod';
+
 
 
 // Define a simpler Event schema for AI processing
@@ -39,8 +39,8 @@ export async function suggestEvents(input: SuggestEventsInput): Promise<SuggestE
 
 const prompt = ai.definePrompt({
   name: 'suggestEventsPrompt',
-  input: {schema: SuggestEventsInputSchema},
-  output: {schema: SuggestEventsOutputSchema},
+  input: { schema: SuggestEventsInputSchema },
+  output: { schema: SuggestEventsOutputSchema },
   prompt: `You are a sophisticated event recommendation engine for an app called RoleHub. Your task is to analyze a user's saved events to understand their preferences and then suggest new events from a general list that they would likely enjoy.
 
 Analyze the user's saved events based on their titles, descriptions, and tags to determine patterns (e.g., preference for "rock music", "art exhibitions", "tech meetups", "outdoor activities", etc.).
@@ -80,7 +80,7 @@ const suggestEventsFlow = ai.defineFlow(
       savedEvents: input.savedEvents,
       allEvents: potentialEventsToSuggest,
     });
-    
+
     return output!;
   }
 );
