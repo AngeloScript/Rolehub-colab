@@ -33,17 +33,16 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
     const fetchAttendees = async () => {
       setIsLoading(true);
       try {
-        // Fetch event details for max participants
+        // Fetch event details for max participants only
         const { data: eventData, error: eventError } = await supabase
           .from('events')
-          .select('participants, max_participants')
+          .select('max_participants')
           .eq('id', eventId)
           .single();
 
         if (eventError) throw eventError;
 
         if (eventData) {
-          setParticipantCount(eventData.participants || 0);
           setMaxParticipants(eventData.max_participants || null);
         }
 
@@ -61,12 +60,16 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const users = attendeesData.map((a: any) => a.users as User);
           setParticipants(users);
+          // Calculate participant count from actual attendees
+          setParticipantCount(attendeesData.length);
         } else {
           setParticipants([]);
+          setParticipantCount(0);
         }
       } catch (error) {
         console.error("Error fetching participants:", JSON.stringify(error, null, 2));
         setParticipants([]);
+        setParticipantCount(0);
       } finally {
         setIsLoading(false);
       }
@@ -150,4 +153,3 @@ export function EventAttendees({ eventId }: EventAttendeesProps) {
     </div>
   );
 }
-

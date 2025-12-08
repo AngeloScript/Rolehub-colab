@@ -71,10 +71,14 @@ function LocateButton() {
 export function GoogleMapComponent({ events, singleEvent = false }: GoogleMapComponentProps) {
     const defaultCenter: [number, number] = [-23.550520, -46.633308];
     const [isMounted, setIsMounted] = useState(false);
-    const [mapKey] = useState(() => `map-${Date.now()}`);
+    const [mapKey] = useState(() => `map-${Date.now()}-${Math.random()}`);
 
     useEffect(() => {
         setIsMounted(true);
+
+        return () => {
+            setIsMounted(false);
+        };
     }, []);
 
     if (!isMounted) {
@@ -93,6 +97,9 @@ export function GoogleMapComponent({ events, singleEvent = false }: GoogleMapCom
                 zoom={12}
                 style={{ width: '100%', height: '100%' }}
                 className="rounded-lg"
+                whenReady={() => {
+                    // Map is ready
+                }}
             >
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

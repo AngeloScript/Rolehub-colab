@@ -1,0 +1,21 @@
+# Docker Compose para RoleHub
+version: '3.8'
+
+services:
+  rolehub-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rolehub-app
+    ports:
+      - "9002:9002"
+    volumes:
+      # Montar o código fonte para hot-reload
+      - .:/app
+      # Evitar sobrescrever node_modules
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    stdin_open: true
+    tty: true
+    command: npm run dev
