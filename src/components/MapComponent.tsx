@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -71,13 +71,19 @@ function LocateButton() {
 export function MapComponent({ events, singleEvent = false }: MapComponentProps) {
     const defaultCenter: [number, number] = [-23.550520, -46.633308];
     const [isMounted, setIsMounted] = useState(false);
-    const [mapKey] = useState(() => `map-${Date.now()}-${Math.random()}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapRef = useRef<any>(null); // Use ref to hold map instance for cleanup
 
     useEffect(() => {
         setIsMounted(true);
 
         return () => {
             setIsMounted(false);
+            // Explicitly remove map on unmount to prevent "Map container is already initialized"
+            if (mapRef.current) {
+                mapRef.current.remove();
+                mapRef.current = null;
+            }
         };
     }, []);
 
@@ -92,14 +98,11 @@ export function MapComponent({ events, singleEvent = false }: MapComponentProps)
     return (
         <div className="relative w-full h-full">
             <MapContainer
-                key={mapKey}
+                ref={mapRef}
                 center={defaultCenter}
                 zoom={12}
                 style={{ width: '100%', height: '100%' }}
                 className="rounded-lg"
-                whenReady={() => {
-                    // Map is ready
-                }}
             >
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
