@@ -90,7 +90,24 @@ export default function ChatPage() {
 
         try {
             await sendMessage(conversationId, optimisticMessage.text);
-            // The real message will come via subscription and replace/deduplicate
+
+            // Notification for the other user
+            if (otherUser) {
+                await supabase.from('notifications').insert({
+                    user_id: otherUser.id,
+                    type: 'event_comment', // Using 'event_comment' as a generic message type or we should add 'message' type to DB enum if possible, but let's stick to existing
+                    // Actually, let's check types.ts. It has: 'new_follower' | 'event_comment' | 'event_saved' | 'event_reminder' | 'event_confirmation'
+                    // We might need to handle this carefully. Use 'event_comment' with specific text for now to avoid DB constraints errors or add a new type.
+                    // Ideally we should add 'new_message' to enum, but I can't change DB enum easily here without migration.
+                    // Let's use 'event_comment' but format it as message.
+                    text: `<strong>${authUser.name}</strong> te enviou uma mensagem.`,
+                    link: `/messages/${authUser.id}`,
+                    read: false,
+                    sender_name: authUser.name || 'Alguém',
+                    sender_avatar: authUser.avatar || ''
+                });
+            }
+
         } catch (error) {
             console.error("Error sending message:", error);
             // Remove optimistic message on error

@@ -89,7 +89,7 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
     if (userData && user) {
       setIsFollowing(userData.following?.includes(user.id) || false);
     }
-  }, [userData, user]);
+  }, [userData?.following, user?.id]);
 
   const handleFollowToggle = async () => {
     if (!authUser || !user || authUser.id === user.id) return;
@@ -99,8 +99,31 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
 
     setIsUpdatingFollow(true);
 
+    // 1. Optimistic Update
+    const previousIsFollowing = isFollowing;
+    const previousFollowers = user.followers || 0;
+
+    // Determine new state
+    const newIsFollowing = !previousIsFollowing;
+    const newFollowers = newIsFollowing
+      ? previousFollowers + 1
+      : Math.max(0, previousFollowers - 1);
+
+    // Apply optimistic updates immediately
+    setIsFollowing(newIsFollowing);
+    setUser(prev => prev ? ({ ...prev, followers: newFollowers }) : undefined);
+
+    // Show instant feedback
+    toast({
+      title: newIsFollowing
+        ? `Agora você está seguindo ${user.name}`
+        : `Você deixou de seguir ${user.name}`
+    });
+
     try {
-      // Get fresh data to avoid race conditions
+      // 2. Perform DB Operations
+
+      // Get current following list
       const { data: currentUserData, error: currentUserError } = await supabase
         .from('users')
         .select('following')
@@ -109,37 +132,13 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
 
       if (currentUserError) throw currentUserError;
 
-      const { data: targetUserData, error: targetUserError } = await supabase
-        .from('users')
-        .select('followers')
-        .eq('id', user.id)
-        .single();
+      let currentFollowing = currentUserData.following || [];
 
-      if (targetUserError) throw targetUserError;
-
-      const currentFollowing = currentUserData.following || [];
-      const currentFollowers = targetUserData.followers || 0;
-
-      const isCurrentlyFollowing = currentFollowing.includes(user.id);
-
-      let newFollowing: string[];
-      let newFollowers: number;
-
-      if (isCurrentlyFollowing) {
-        // Unfollow
-        newFollowing = currentFollowing.filter((id: string) => id !== user.id);
-        newFollowers = Math.max(0, currentFollowers - 1);
-        toast({ title: `Você deixou de seguir ${user.name}` });
-        setIsFollowing(false);
-      } else {
-        // Follow
+      // Ensure consistency with action
+      if (newIsFollowing) {
         if (!currentFollowing.includes(user.id)) {
-          newFollowing = [...currentFollowing, user.id];
-          newFollowers = currentFollowers + 1;
-          toast({ title: `Agora você está seguindo ${user.name}` });
-          setIsFollowing(true);
-
-          // Create notification only if not already following
+          currentFollowing = [...currentFollowing, user.id];
+          // Create notification
           await supabase.from('notifications').insert({
             user_id: user.id,
             type: 'new_follower',
@@ -149,41 +148,35 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
             sender_avatar: userData?.avatar || '',
             link: `/profile/${authUser.id}`
           });
-        } else {
-          // Already following, shouldn't happen but safe guard
-          newFollowing = currentFollowing;
-          newFollowers = currentFollowers;
         }
+      } else {
+        currentFollowing = currentFollowing.filter((id: string) => id !== user.id);
       }
 
-      // Update current user following
+      // Update 'following' on authUser
       const { error: updateFollowingError } = await supabase
         .from('users')
-        .update({ following: newFollowing })
+        .update({ following: currentFollowing })
         .eq('id', authUser.id);
 
       if (updateFollowingError) throw updateFollowingError;
 
-      // Update target user followers count
-      // Update target user followers count (Best effort)
-      try {
-        const { error: updateFollowersError } = await supabase
-          .from('users')
-          .update({ followers: newFollowers })
-          .eq('id', user.id);
+      // Update 'followers' count on target user (best effort)
+      // We use the calculated value to sync, but ideally this would be an RPC increment/decrement
+      const { error: updateFollowersError } = await supabase
+        .from('users')
+        .update({ followers: newFollowers })
+        .eq('id', user.id);
 
-        if (updateFollowersError) console.warn("Could not update followers count (RLS?):", updateFollowersError);
-      } catch (err) {
-        console.warn("Could not update followers count:", err);
-      }
-
-      // Update local user state for UI
-      setUser(prev => prev ? ({ ...prev, followers: newFollowers }) : undefined);
+      if (updateFollowersError) console.warn("Could not update followers count (RLS?):", updateFollowersError);
 
     } catch (error) {
       console.error('Error updating follow status:', JSON.stringify(error, null, 2));
-      toast({ variant: 'destructive', title: 'Erro ao seguir usuário' });
-      // Revert state on error if needed, but fetching fresh data minimizes this need
+      toast({ variant: 'destructive', title: 'Erro ao atualizar', description: "Desfazendo alteração..." });
+
+      // Revert optimistic update on error
+      setIsFollowing(previousIsFollowing);
+      setUser(prev => prev ? ({ ...prev, followers: previousFollowers }) : undefined);
     } finally {
       setIsUpdatingFollow(false);
     }
