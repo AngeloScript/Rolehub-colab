@@ -1,126 +1,95 @@
 "use client";
 
-import { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import Map, { Marker, Popup, GeolocateControl, MapRef } from 'react-map-gl/mapbox';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { Event } from '@/lib/types';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Crosshair } from 'lucide-react';
-
-// Fix for default marker icons in Leaflet
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
+import { MAPBOX_TOKEN } from '@/lib/mapbox-config';
 
 interface MapComponentProps {
     events: Event[];
     singleEvent?: boolean;
 }
 
-function MapBounds({ events }: { events: Event[] }) {
-    const map = useMap();
+export function MapComponent({ events, singleEvent = false }: MapComponentProps) {
+    const mapRef = useRef<MapRef>(null);
+    const [popupInfo, setPopupInfo] = useState<Event | null>(null);
+
+    const validEvents = useMemo(() =>
+        events.filter(e => typeof e.latitude === 'number' && typeof e.longitude === 'number'),
+        [events]);
 
     useEffect(() => {
-        if (events.length > 0) {
-            const validEvents = events.filter(
-                (e) => typeof e.latitude === 'number' && typeof e.longitude === 'number'
-            );
+        if (!mapRef.current) return;
 
+        if (validEvents.length > 0) {
             if (validEvents.length === 1) {
-                map.setView([validEvents[0].latitude!, validEvents[0].longitude!], 15);
-            } else if (validEvents.length > 1) {
-                const bounds = L.latLngBounds(
-                    validEvents.map((e) => [e.latitude!, e.longitude!])
-                );
-                map.fitBounds(bounds, { padding: [50, 50] });
+                mapRef.current.flyTo({ center: [validEvents[0].longitude!, validEvents[0].latitude!], zoom: 15 });
+            } else {
+                const bounds = new mapboxgl.LngLatBounds();
+                validEvents.forEach(e => bounds.extend([e.longitude!, e.latitude!]));
+
+                mapRef.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
             }
         }
-    }, [events, map]);
-
-    return null;
-}
-
-function LocateButton() {
-    const map = useMap();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleLocate = () => {
-        map.locate({ setView: true, maxZoom: 14 });
-    };
+    }, [validEvents]);
 
     return (
-        <Button
-            variant="secondary"
-            size="icon"
-            className="absolute bottom-4 right-4 rounded-full shadow-lg z-[1000]"
-            onClick={handleLocate}
-            title="Perto de mim"
-        >
-            <Crosshair className="w-5 h-5" />
-        </Button>
-    );
-}
-
-export function MapComponent({ events, singleEvent = false }: MapComponentProps) {
-    const defaultCenter: [number, number] = [-23.550520, -46.633308];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mapRef = useRef<any>(null);
-    const [mapKey] = useState(() => `map-${Date.now()}`);
-
-    useEffect(() => {
-        return () => {
-            if (mapRef.current) {
-                mapRef.current.remove();
-                mapRef.current = null;
-            }
-        };
-    }, []);
-
-    return (
-        <div className="relative w-full h-full">
-            <MapContainer
-                key={mapKey}
+        <div className="relative w-full h-full rounded-lg overflow-hidden">
+            <Map
                 ref={mapRef}
-                center={defaultCenter}
-                zoom={12}
+                initialViewState={{
+                    longitude: -46.633308,
+                    latitude: -23.550520,
+                    zoom: 12
+                }}
                 style={{ width: '100%', height: '100%' }}
-                className="rounded-lg"
+                mapStyle="mapbox://styles/mapbox/dark-v11"
+                mapboxAccessToken={MAPBOX_TOKEN}
             >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                />
-
-                <MapBounds events={events} />
-
-                {events.map((event) =>
-                    typeof event.latitude === 'number' && typeof event.longitude === 'number' ? (
-                        <Marker key={event.id} position={[event.latitude, event.longitude]}>
-                            <Popup>
-                                <div className="p-2">
-                                    <h3 className="font-bold text-sm mb-1">{event.title}</h3>
-                                    <p className="text-xs text-gray-600 mb-2">{event.locationName}</p>
-                                    <Link
-                                        href={`/events/${event.id}`}
-                                        className="text-xs text-blue-600 hover:underline"
-                                    >
-                                        Ver detalhes
-                                    </Link>
-                                </div>
-                            </Popup>
-                        </Marker>
-                    ) : null
+                {!singleEvent && (
+                    <GeolocateControl
+                        position="bottom-right"
+                        positionOptions={{ enableHighAccuracy: true }}
+                        trackUserLocation={true}
+                    />
                 )}
 
-                {!singleEvent && <LocateButton />}
-            </MapContainer>
+                {validEvents.map((event) => (
+                    <Marker
+                        key={event.id}
+                        longitude={event.longitude!}
+                        latitude={event.latitude!}
+                        anchor="bottom"
+                        onClick={e => {
+                            e.originalEvent.stopPropagation();
+                            setPopupInfo(event);
+                        }}
+                    >
+                        {/* Default marker is fine, or customize if needed. Using default for now to be distinct from InteractiveMap if they are used differently, or I could match InteractiveMap style. 
+                             The original MapComponent used the default Leaflet blue marker. 
+                             React-map-gl default marker is red.
+                         */}
+                    </Marker>
+                ))}
+
+                {popupInfo && (
+                    <Popup
+                        anchor="top"
+                        longitude={popupInfo.longitude!}
+                        latitude={popupInfo.latitude!}
+                        onClose={() => setPopupInfo(null)}
+                        className="text-foreground"
+                    >
+                        <div className="p-2">
+                            <h3 className="font-bold text-sm mb-1 text-black">{popupInfo.title}</h3>
+                            <p className="text-xs text-gray-600 mb-2">{popupInfo.locationName || 'Localização definida'}</p>
+                            <a href={`/events/${popupInfo.id}`} className="text-xs text-blue-600 hover:underline">Ver detalhes</a>
+                        </div>
+                    </Popup>
+                )}
+            </Map>
         </div>
     );
 }

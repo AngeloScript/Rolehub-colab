@@ -1,21 +1,14 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useState, useCallback, useRef } from 'react';
+import Map, { Marker, NavigationControl, MapRef, MarkerDragEvent } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { Search } from 'lucide-react';
-
-// Fix para ícones do Leaflet no Next.js
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import { Search, MapPin } from 'lucide-react';
+import { MAPBOX_TOKEN } from '@/lib/mapbox-config';
+import mapboxgl from 'mapbox-gl';
 
 export interface Location {
   lat: number;
@@ -28,42 +21,51 @@ interface EventMapCreatorProps {
   initialAddress?: string | null;
 }
 
-
 export default function EventMapCreator({ onLocationChange, initialAddress }: EventMapCreatorProps) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const mapRef = useRef<MapRef>(null);
 
   const [address, setAddress] = useState(initialAddress || '');
-  const [markerPosition, setMarkerPosition] = useState<[number, number] | null>(null);
+  const [markerPosition, setMarkerPosition] = useState<{ lat: number, lng: number } | null>(null);
+  const [viewState, setViewState] = useState({
+    longitude: -47.879,
+    latitude: -15.788,
+    zoom: 4
+  });
 
+  const updateLocation = useCallback((lat: number, lng: number) => {
+    setMarkerPosition({ lat, lng });
 
-  // Atualiza coordenadas quando o marcador é arrastado
-  const handleMarkerDrag = useCallback((e: L.LeafletEvent) => {
-    const marker = e.target as L.Marker;
-    const newPos = marker.getLatLng();
-    const newPosition: [number, number] = [newPos.lat, newPos.lng];
-    setMarkerPosition(newPosition);
-
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newPos.lat}&lon=${newPos.lng}`)
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
       .then(res => res.json())
       .then(data => {
         const displayAddress = data.display_name || 'Localização ajustada manualmente';
         setAddress(displayAddress);
         onLocationChange({
-          lat: newPos.lat,
-          lng: newPos.lng,
+          lat,
+          lng,
           address: displayAddress
         });
       }).catch(error => {
         console.error('Erro na geocodificação reversa:', error);
         onLocationChange({
-          lat: newPos.lat,
-          lng: newPos.lng,
+          lat,
+          lng,
           address: 'Localização ajustada manualmente'
         });
       });
   }, [onLocationChange]);
+
+  // Handle marker drag end
+  const handleMarkerDragEnd = useCallback((event: MarkerDragEvent) => {
+    const { lat, lng } = event.lngLat;
+    updateLocation(lat, lng);
+  }, [updateLocation]);
+
+  // Handle map click
+  const handleMapClick = useCallback((event: mapboxgl.MapLayerMouseEvent) => {
+    const { lat, lng } = event.lngLat;
+    updateLocation(lat, lng);
+  }, [updateLocation]);
 
   // Geocodificação: Converte endereço em coordenadas
   const geocodeAddress = useCallback(async (addr: string) => {
@@ -77,25 +79,20 @@ export default function EventMapCreator({ onLocationChange, initialAddress }: Ev
 
       if (data && data.length > 0) {
         const { lat, lon, display_name } = data[0];
-        const newPosition: [number, number] = [parseFloat(lat), parseFloat(lon)];
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lon);
 
-        if (mapInstanceRef.current) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          mapInstanceRef.current.setView(newPosition, 15);
+        if (mapRef.current) {
+          mapRef.current.flyTo({ center: [longitude, latitude], zoom: 15 });
+        } else {
+          setViewState(prev => ({ ...prev, longitude, latitude, zoom: 15 }));
         }
 
-        if (markerRef.current) {
-          markerRef.current.setLatLng(newPosition);
-        } else if (mapInstanceRef.current) {
-          markerRef.current = L.marker(newPosition, { draggable: true })
-            .addTo(mapInstanceRef.current)
-            .on('dragend', handleMarkerDrag);
-        }
+        setMarkerPosition({ lat: latitude, lng: longitude });
 
-        setMarkerPosition(newPosition);
         onLocationChange({
-          lat: parseFloat(lat),
-          lng: parseFloat(lon),
+          lat: latitude,
+          lng: longitude,
           address: display_name
         });
       } else {
@@ -105,67 +102,15 @@ export default function EventMapCreator({ onLocationChange, initialAddress }: Ev
       console.error('Erro na geocodificação:', error);
       alert("Ocorreu um erro ao buscar o endereço.");
     }
-  }, [onLocationChange, handleMarkerDrag]);
+  }, [onLocationChange]);
 
-  // Handle search on Enter key press
+  // Handle search on Enter key press  // Handle search on Enter key press
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       geocodeAddress(address);
     }
   };
-
-  // Efeito para inicializar o mapa
-  useEffect(() => {
-    if (mapContainerRef.current && !mapInstanceRef.current) {
-      mapInstanceRef.current = L.map(mapContainerRef.current).setView([-15.788, -47.879], 4);
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      }).addTo(mapInstanceRef.current);
-
-      // Adicionar listener de clique
-      mapInstanceRef.current.on('click', (e: L.LeafletMouseEvent) => {
-        const newPosition: [number, number] = [e.latlng.lat, e.latlng.lng];
-        setMarkerPosition(newPosition);
-
-        if (markerRef.current) {
-          markerRef.current.setLatLng(newPosition);
-        } else if (mapInstanceRef.current) {
-          markerRef.current = L.marker(newPosition, { draggable: true })
-            .addTo(mapInstanceRef.current)
-            .on('dragend', handleMarkerDrag);
-        }
-
-        // Trigger reverse geocoding
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
-          .then(res => res.json())
-          .then(data => {
-            const displayAddress = data.display_name || 'Localização ajustada manualmente';
-            setAddress(displayAddress);
-            onLocationChange({
-              lat: e.latlng.lat,
-              lng: e.latlng.lng,
-              address: displayAddress
-            });
-          }).catch(error => {
-            console.error('Erro na geocodificação reversa:', error);
-            onLocationChange({
-              lat: e.latlng.lat,
-              lng: e.latlng.lng,
-              address: 'Localização ajustada manualmente'
-            });
-          });
-      });
-    }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [handleMarkerDrag, onLocationChange]);
 
   return (
     <div className="space-y-4">
@@ -188,13 +133,36 @@ export default function EventMapCreator({ onLocationChange, initialAddress }: Ev
         </Button>
       </div>
 
-      <div className="h-72 w-full rounded-lg overflow-hidden border" ref={mapContainerRef} />
+      <div className="h-72 w-full rounded-lg overflow-hidden border relative">
+        <Map
+          {...viewState}
+          ref={mapRef}
+          onMove={evt => setViewState(evt.viewState)}
+          style={{ width: '100%', height: '100%' }}
+          mapStyle="mapbox://styles/mapbox/dark-v11"
+          mapboxAccessToken={MAPBOX_TOKEN}
+          onClick={handleMapClick}
+        >
+          <NavigationControl position="top-left" />
+          {markerPosition && (
+            <Marker
+              longitude={markerPosition.lng}
+              latitude={markerPosition.lat}
+              draggable
+              onDragEnd={handleMarkerDragEnd}
+              anchor="bottom"
+            >
+              <MapPin className="text-red-500 w-8 h-8 -translate-y-1/2 drop-shadow-md" fill="currentColor" />
+            </Marker>
+          )}
+        </Map>
+      </div>
 
       {markerPosition && (
         <div className="text-xs text-muted-foreground">
-          <strong>Coordenadas:</strong> {markerPosition[0].toFixed(5)}, {markerPosition[1].toFixed(5)}
+          <strong>Coordenadas:</strong> {markerPosition.lat.toFixed(5)}, {markerPosition.lng.toFixed(5)}
           <br />
-          <span className="italic">Você pode arrastar o pino para ajustar a localização exata.</span>
+          <span className="italic">Você pode arrastar o pino ou clicar no mapa para ajustar a localização exata.</span>
         </div>
       )}
     </div>

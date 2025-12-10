@@ -8,19 +8,23 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 7%; /* #111111 */
+    --background: 0 0% 7%;
+    /* #111111 */
     --foreground: 0 0% 98%;
     --card: 0 0% 10%;
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 7%;
     --popover-foreground: 0 0% 98%;
-    --primary: 159 100% 50%; /* #00FFA3 */
+    --primary: 159 100% 50%;
+    /* #00FFA3 */
     --primary-foreground: 0 0% 5%;
-    --secondary: 222 100% 50%; /* #0055FF */
+    --secondary: 222 100% 50%;
+    /* #0055FF */
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 222 100% 50%; /* #0055FF */
+    --accent: 222 100% 50%;
+    /* #0055FF */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
@@ -40,6 +44,7 @@ body {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -53,26 +58,34 @@ body {
     filter: drop-shadow(0 0 2px hsl(var(--primary))) drop-shadow(0 0 5px hsl(var(--primary)));
   }
 
-  .leaflet-popup-content-wrapper {
-    @apply bg-card/80 backdrop-blur-sm rounded-lg border-border/50;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  .mapboxgl-popup-content {
+    background-color: hsl(var(--card) / 0.95) !important;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    border: 1px solid hsl(var(--border) / 0.5);
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    color: hsl(var(--foreground));
   }
 
-  .leaflet-popup-tip-container {
-      display: none;
-  }
-  .leaflet-popup-content {
-      margin: 10px;
-      font-family: var(--font-inter);
+  .mapboxgl-popup-tip {
+    border-top-color: hsl(var(--card) / 0.95) !important;
   }
 
-  .leaflet-popup-content a {
-    @apply text-primary-foreground;
+  .mapboxgl-popup-close-button {
+    color: hsl(var(--foreground));
+    font-size: 1.5rem;
+    padding-right: 4px;
+  }
+
+  .mapboxgl-popup-content a {
+    @apply text-primary;
   }
 
   .animate-gradient {
-      background-position: 0% 50%;
-      animation: gradient-animation 5s ease infinite;
+    background-position: 0% 50%;
+    animation: gradient-animation 5s ease infinite;
   }
 
   .dynamic-bg {
@@ -81,9 +94,17 @@ body {
 }
 
 @keyframes gradient-animation {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 
@@ -91,12 +112,15 @@ body {
   0% {
     stroke-dashoffset: 100;
   }
+
   40% {
     stroke-dashoffset: 0;
   }
+
   60% {
     stroke-dashoffset: 0;
   }
+
   100% {
     stroke-dashoffset: -100;
   }
