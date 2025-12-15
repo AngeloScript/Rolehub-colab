@@ -278,6 +278,56 @@ export default function EventDetail() {
     }
   };
 
+  const handleBuyTicket = async () => {
+    if (!authUser || !event) {
+      toast({ title: "Faça login para comprar", variant: "destructive" });
+      return;
+    }
+
+    setIsConfirming(true);
+
+    try {
+      // 1. Call API to create Payment Preference
+      const response = await fetch('/api/payments/preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: event.id,
+          title: `Ingresso: ${event.title}`,
+          price: event.price || 0,
+          quantity: 1,
+          userId: authUser.id,
+          email: authUser.email,
+          payerFirstName: userData?.name.split(' ')[0] || 'Visitante',
+          payerLastName: userData?.name.split(' ').slice(1).join(' ') || ''
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || "Erro ao iniciar pagamento");
+
+      // 2. Save pending event ID to handle success later
+      localStorage.setItem('rolehub_pending_event_id', event.id);
+
+      // 3. Redirect to Mercado Pago Checkout
+      if (data.init_point) {
+        router.push(data.init_point);
+      } else {
+        throw new Error("Link de pagamento não gerado");
+      }
+
+    } catch (error) {
+      console.error("Error buying ticket:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao iniciar compra",
+        description: error instanceof Error ? error.message : "Tente novamente."
+      });
+      setIsConfirming(false);
+    }
+  }
+
   const handleCheckIn = async () => {
     if (!authUser || !event) return;
 
@@ -541,6 +591,9 @@ export default function EventDetail() {
                       isSaving={isSaving}
                       onToggleGoing={handleGoingToggle}
                       onToggleSave={handleSaveToggle}
+                      price={event.price}
+                      currency={event.currency}
+                      onBuyTicket={handleBuyTicket}
                     />
                   </div>
 

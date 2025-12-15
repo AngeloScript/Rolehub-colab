@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Edit, LogOut, Save, Loader2, PartyPopper } from 'lucide-react';
+import { Camera, Edit, LogOut, Save, Loader2, PartyPopper, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EventCard } from '@/components/EventCard';
@@ -340,6 +340,16 @@ export default function ProfilePage() {
               </div>
 
               <div className="flex-grow w-full">
+                {!isEditing && (
+                  <div className="flex justify-center md:justify-end mb-4 md:mb-0 md:absolute md:top-8 md:right-4">
+                    <Button asChild variant="outline" className="gap-2">
+                      <Link href="/tickets">
+                        <Ticket className="w-4 h-4" />
+                        Meus Ingressos
+                      </Link>
+                    </Button>
+                  </div>
+                )}
                 {!isEditing ? (
                   <>
                     <div className="flex items-center gap-2 justify-center md:justify-start">

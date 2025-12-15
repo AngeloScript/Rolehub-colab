@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Users, LogOut, MessageCircle, PlusSquare, Bell, Calendar } from 'lucide-react';
+import { Home, Users, LogOut, MessageCircle, PlusSquare, Bell, Calendar, Ticket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import { RoleHubAnimatedLogo } from '../RoleHubAnimatedLogo';
@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Skeleton } from '../ui/skeleton';
-import { useState, useEffect } from 'react';
+import { useUnreadMessages } from '@/hooks/use-unread-messages';
 
 const navItems = [
   { href: '/events', icon: Home, label: 'Eventos' },
@@ -22,21 +22,16 @@ const navItems = [
 ];
 
 const userNavItems = [
+  { href: '/tickets', icon: Ticket, label: 'Meus Ingressos' },
   { href: '/events/create', icon: PlusSquare, label: 'Criar Rolê' },
 ]
 
 export function SidebarNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [unreadCount, setUnreadCount] = useState(0);
-
+  const { unreadCount } = useUnreadMessages();
   const { userData, loading } = useAuth();
 
-
-  useEffect(() => {
-    // Mock unread count
-    setUnreadCount(1);
-  }, [pathname]);
 
 
   const handleLogout = async () => {

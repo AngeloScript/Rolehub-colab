@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, Clock, Image as ImageIcon, Loader2, MapPin, Tag, Text, Upload, Wand2, Users, MessageSquare, Palette, Lock, Globe } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Image as ImageIcon, Loader2, MapPin, Tag, Text, Upload, Wand2, Users, MessageSquare, Palette, Lock, Globe, DollarSign } from "lucide-react";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +50,7 @@ const eventSchema = z.object({
   maxParticipants: z.coerce.number().min(2, "O evento deve ter pelo menos 2 participantes.").optional().or(z.literal('')),
   isChatEnabled: z.boolean().default(true),
   privacy: z.enum(["public", "private"]).default("public"),
+  price: z.coerce.number().min(0, "O preço não pode ser negativo.").default(0),
   primaryColor: z.string().optional(),
   backgroundColor: z.string().optional(),
   secondaryColor: z.string().optional(),
@@ -85,6 +86,7 @@ export default function CreateEventPage() {
       maxParticipants: '',
       isChatEnabled: true,
       privacy: "public",
+      price: 0,
     },
   });
 
@@ -231,6 +233,8 @@ export default function CreateEventPage() {
           primary_color: data.primaryColor || null,
           background_color: data.backgroundColor || null,
           secondary_color: data.secondaryColor || null,
+          price: data.price,
+          currency: 'BRL'
         })
         .select()
         .single();
@@ -395,6 +399,23 @@ export default function CreateEventPage() {
 
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="price"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Preço do Ingresso (R$)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                              <Input {...field} type="number" placeholder="0.00" className="pl-10" step="0.01" min="0" />
+                            </div>
+                          </FormControl>
+                          <FormDescription>Deixe 0 para evento gratuito</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField
                       control={form.control}
                       name="maxParticipants"

@@ -15,12 +15,14 @@ export type Event = {
   title: string;
   description: string;
   image: string;
+  image_url?: string; // DB field alias
   date: string;
   fullDate?: string; // ISO string for countdown
   time: string;
   createdAt: string;
   location: string; // Full address from geocoding
   locationName: string; // User-friendly name like "Bar do Zé"
+  location_name?: string; // DB field alias
   latitude: number;
   longitude: number;
   tags: string[];
@@ -38,6 +40,19 @@ export type Event = {
   backgroundColor?: string;
   secondaryColor?: string;
   organizer?: User; // Add organizer details
+  price?: number;
+  currency?: string;
+};
+
+export type Ticket = {
+  id: string;
+  eventId: string;
+  userId: string;
+  status: 'valid' | 'used' | 'cancelled';
+  qrCode?: string;
+  pricePaid: number;
+  createdAt: string;
+  event?: Event; // Hydrated event data
 };
 
 export type User = {
