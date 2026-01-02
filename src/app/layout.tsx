@@ -5,6 +5,7 @@ import { VitalsMonitor } from '@/components/VitalsMonitor';
 import { Inter, Poppins } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { AuthProvider } from '@/hooks/use-auth';
+import { UnreadProvider } from '@/context/UnreadContext';
 
 
 export const metadata: Metadata = {
@@ -44,9 +45,11 @@ export default function RootLayout({
       </head>
       <body className={cn("font-body antialiased", fontInter.variable, fontPoppins.variable)}>
         <AuthProvider>
-          <VitalsMonitor />
-          {children}
-          <Toaster />
+          <UnreadProvider>
+            <VitalsMonitor />
+            {children}
+            <Toaster />
+          </UnreadProvider>
         </AuthProvider>
       </body>
     </html>

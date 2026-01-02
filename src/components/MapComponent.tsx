@@ -67,10 +67,7 @@ export function MapComponent({ events, singleEvent = false }: MapComponentProps)
                             setPopupInfo(event);
                         }}
                     >
-                        {/* Default marker is fine, or customize if needed. Using default for now to be distinct from InteractiveMap if they are used differently, or I could match InteractiveMap style. 
-                             The original MapComponent used the default Leaflet blue marker. 
-                             React-map-gl default marker is red.
-                         */}
+                        {/* Default marker is fine */}
                     </Marker>
                 ))}
 

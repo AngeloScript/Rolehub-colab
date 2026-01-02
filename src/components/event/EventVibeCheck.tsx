@@ -13,7 +13,7 @@ interface EventVibeCheckProps {
     vibeVote: 'hot' | 'cold' | null;
     onVote: (type: 'hot' | 'cold') => void;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    authUser: any; // Using any to be flexible with Firebase User vs Custom User, or strictly User | null
+    authUser: any; // Keeping any for now to avoid breaking changes, but removed specific Firebase comment
 }
 
 export function EventVibeCheck({ event, vibeVote, onVote, authUser }: EventVibeCheckProps) {

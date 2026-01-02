@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import { Skeleton } from '../ui/skeleton';
-import { useUnreadMessages } from '@/hooks/use-unread-messages';
+import { useNotifications } from '@/hooks/use-notifications';
 
 const navItems = [
   { href: '/events', icon: Home, label: 'Eventos' },
@@ -29,7 +29,7 @@ const userNavItems = [
 export function SidebarNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { unreadCount } = useUnreadMessages();
+  const { unreadCount: unreadNotificationsCount } = useNotifications();
   const { userData, loading } = useAuth();
 
 
@@ -69,7 +69,7 @@ export function SidebarNav() {
               )}>
                 <item.icon className="w-5 h-5" />
                 <span>{item.label}</span>
-                {item.href === '/notifications' && unreadCount > 0 && <Badge variant="destructive" className="absolute right-3 top-1/2 -translate-y-1/2 p-0 h-4 w-4 flex items-center justify-center text-[10px]">{unreadCount}</Badge>}
+                {item.href === '/notifications' && unreadNotificationsCount > 0 && <Badge variant="destructive" className="absolute right-3 top-1/2 -translate-y-1/2 p-0 h-4 w-4 flex items-center justify-center text-[10px]">{unreadNotificationsCount}</Badge>}
               </div>
             </Link>
           );

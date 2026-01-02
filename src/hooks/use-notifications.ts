@@ -66,29 +66,63 @@ export function useNotifications() {
 
         // Realtime subscription
         const channel = supabase
-            .channel(`notifications:${user.id} `)
+            .channel(`notifications:${user.id}`)
             .on('postgres_changes', {
-                event: '*',
+                event: 'INSERT',
                 schema: 'public',
                 table: 'notifications',
-                filter: `user_id = eq.${user.id} `
-            }, () => {
-                fetchNotifications();
+                filter: `user_id=eq.${user.id}`
+            }, (payload) => {
+                try {
+                    // Immediately prepend the new notification
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const newNotification = payload.new as any;
+
+                    if (!newNotification || !newNotification.id) {
+                        console.warn("Received invalid notification payload:", payload);
+                        return;
+                    }
+
+                    const mappedNotification: Notification = {
+                        id: newNotification.id,
+                        type: newNotification.type,
+                        text: newNotification.text,
+                        link: newNotification.link,
+                        read: newNotification.read,
+                        timestamp: newNotification.created_at,
+                        time: newNotification.created_at,
+                        user: {
+                            id: 'system',
+                            name: newNotification.sender_name || 'Sistema',
+                            email: '',
+                            avatar: newNotification.sender_avatar || '',
+                            savedEvents: [],
+                            relationshipStatus: 'not_specified',
+                            bio: '',
+                            following: [],
+                            followers: 0,
+                            checkIns: 0
+                        } as unknown as User
+                    };
+
+                    setNotifications(prev => [mappedNotification, ...prev]);
+                    setUnreadCount(prev => prev + 1);
+
+                    toast({
+                        title: "Nova Notificação",
+                        description: "Você recebeu uma nova atualização."
+                    });
+                } catch (error) {
+                    console.error("Error handling realtime notification:", error);
+                }
             })
             .subscribe();
-
-        // Listen for foreground messages (FCM specific, keeping as no Supabase alternative provided)
-        // Removed FCM listener as firebase-messaging is deleted.
 
         return () => {
             supabase.removeChannel(channel);
         };
     }, [user, toast]);
 
-    // This function is for FCM token management, keeping it as no Supabase equivalent was provided.
-    const requestPermission = async () => {
-        // Removed FCM permission request
-    };
 
     const markAsRead = async (notificationId: string) => {
         if (!user) return;
@@ -130,6 +164,5 @@ export function useNotifications() {
         markAsRead,
         markAllAsRead,
         unreadCount,
-        requestPermission
     };
 }

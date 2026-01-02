@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { User as AppUser } from '@/lib/types';
@@ -50,11 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    fetchUserData();
-  }, [user]);
-
-  async function fetchUserData() {
+  const fetchUserData = useCallback(async () => {
     if (user) {
       try {
         const { data, error } = await supabase
@@ -89,7 +85,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserData();
+    }
+  }, [user, fetchUserData]);
 
   const refreshUserData = async () => {
     await fetchUserData();

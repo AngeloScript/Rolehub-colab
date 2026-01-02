@@ -2,12 +2,9 @@
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/PageHeader';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChat } from '@/hooks/use-chat';
 import { Loader2, MessageCircle } from 'lucide-react';
-import Link from 'next/link';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { ChatList } from '@/components/chat/ChatList';
 
 export default function MessagesPage() {
     const { conversations, loading } = useChat();
@@ -26,42 +23,16 @@ export default function MessagesPage() {
         <AppLayout>
             <div className="pb-24 md:pb-4">
                 <PageHeader title="Mensagens" subtitle="Suas conversas privadas" />
-                <main className="px-4 max-w-2xl mx-auto">
+                <main className="px-0 md:px-4 max-w-2xl mx-auto">
                     {conversations.length > 0 ? (
-                        <div className="space-y-2">
-                            {conversations.map((conv) => (
-                                <Link
-                                    key={conv.id}
-                                    href={`/messages/${conv.otherUser?.id || conv.id}`} // Use otherUser ID for cleaner URL if possible, or conv ID
-                                    className="block"
-                                >
-                                    <div className="flex items-center gap-4 p-4 rounded-lg bg-card/50 hover:bg-card transition-colors border border-border/50">
-                                        <Avatar className="w-12 h-12">
-                                            <AvatarImage src={conv.otherUser?.avatar} />
-                                            <AvatarFallback>{conv.otherUser?.name?.charAt(0) || '?'}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-grow min-w-0">
-                                            <div className="flex justify-between items-baseline mb-1">
-                                                <h3 className="font-semibold truncate">{conv.otherUser?.name || 'Usuário desconhecido'}</h3>
-                                                {conv.lastMessageTimestamp && (
-                                                    <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
-                                                        {formatDistanceToNow(new Date(conv.lastMessageTimestamp), { addSuffix: true, locale: ptBR })}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-sm text-muted-foreground truncate">
-                                                {conv.lastMessage || 'Inicie a conversa...'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
+                        <div className="bg-card md:rounded-lg md:border md:shadow-sm overflow-hidden min-h-[500px]">
+                            <ChatList conversations={conversations} />
                         </div>
                     ) : (
                         <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
-                            <MessageCircle className="w-12 h-12" />
-                            <h3 className="text-lg font-semibold text-foreground">Nenhuma mensagem ainda</h3>
-                            <p className="max-w-xs">Suas conversas privadas aparecerão aqui.</p>
+                            <MessageCircle className="w-12 h-12 opacity-20" />
+                            <h3 className="text-lg font-semibold text-foreground">Suas conversas</h3>
+                            <p className="max-w-xs text-sm">As mensagens privadas que você trocar aparecerão aqui.</p>
                         </div>
                     )}
                 </main>

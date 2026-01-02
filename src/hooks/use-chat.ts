@@ -1,29 +1,12 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/use-auth';
-import { User } from '@/lib/types';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface Message {
-    id: string;
-    senderId: string;
-    text: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    timestamp: any;
-    author: string;
-    avatar?: string;
-}
+import { User, Message, ChatConversation } from '@/lib/types';
 
-export type ChatConversation = {
-    id: string;
-    participants: string[];
-    lastMessage: string;
-    lastMessageTimestamp: string; // Firestore Timestamp
-    unread: boolean; // This would need more complex logic in real app
-    otherUser?: User; // Enriched data
-};
+
 
 export function useChat() {
     const { user } = useAuth();
@@ -94,7 +77,8 @@ export function useChat() {
                         otherUser
                     } as ChatConversation;
                 }));
-                setConversations(convs);
+                // Filter out conversations where otherUser is missing (to prevent crashes)
+                setConversations(convs.filter(c => c.otherUser !== undefined));
             }
             setLoading(false);
         };
@@ -119,38 +103,40 @@ export function useChat() {
         };
     }, [user]);
 
-    const getOrCreateConversation = async (otherUserId: string) => {
+    const getOrCreateConversation = useCallback(async (otherUserId: string) => {
         if (!user) return null;
 
         const sortedIds = [user.id, otherUserId].sort();
         const conversationId = sortedIds.join('_');
 
-        // Check if conversation exists
-        const { data: existingConv } = await supabase
+        // Optimistic Upsert (Try to insert, if exists, do nothing/return it)
+        const { error } = await supabase
             .from('conversations')
-            .select('id')
-            .eq('id', conversationId)
-            .single();
+            .upsert({
+                id: conversationId,
+                participants: sortedIds,
+                // Only set defaults if it's a NEW row (this is tricky with upsert, 
+                // but if we ignore duplicates, it won't overwrite existing data)
+                last_message: '',
+                last_message_timestamp: new Date().toISOString()
+            }, { onConflict: 'id', ignoreDuplicates: true });
 
-        if (!existingConv) {
-            const { error } = await supabase
-                .from('conversations')
-                .insert({
-                    id: conversationId,
-                    participants: sortedIds,
-                    last_message: '',
-                    last_message_timestamp: new Date().toISOString()
-                });
-
-            if (error) {
-                console.error("Error creating conversation:", JSON.stringify(error, null, 2));
+        if (error) {
+            // Error 23505 is duplicate key, but ignoreDuplicates should handle it.
+            // If it still errors, it's something else.
+            console.error("Error creating conversation:", JSON.stringify(error, null, 2));
+            // Just return null or maybe return the ID anyway assuming it exists?
+            // If error is strictly duplicate key violation not caught by ignoreDuplicates (unlikely), 
+            // we should still return the ID so the chat loads.
+            if (error.code !== '23505') {
                 return null;
             }
         }
-        return conversationId;
-    };
 
-    const sendMessage = async (conversationId: string, text: string) => {
+        return conversationId;
+    }, [user]);
+
+    const sendMessage = useCallback(async (conversationId: string, text: string) => {
         if (!user || !text.trim()) return;
 
         const { error: msgError } = await supabase
@@ -173,7 +159,7 @@ export function useChat() {
                 last_message_timestamp: new Date().toISOString()
             })
             .eq('id', conversationId);
-    };
+    }, [user]);
 
     return {
         conversations,
@@ -184,6 +170,7 @@ export function useChat() {
 }
 
 export function useMessages(conversationId: string) {
+    const { user } = useAuth();
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -206,8 +193,11 @@ export function useMessages(conversationId: string) {
                     senderId: msg.sender_id,
                     text: msg.text,
                     timestamp: msg.created_at,
-                    author: '', // Not stored in msg, fetched separately if needed
-                    avatar: ''
+                    author: '', // Optional: could be filled if we joined with users
+                    avatar: '',
+                    mediaUrl: msg.media_url,
+                    mediaType: msg.media_type,
+                    status: msg.status || 'sent'
                 })));
             }
             setLoading(false);
@@ -215,36 +205,75 @@ export function useMessages(conversationId: string) {
 
         fetchMessages();
 
-        // Subscribe to NEW messages
+        // Subscribe to ALL message events (Global Channel for robustness)
+        // We filter client-side to assume reliability over server-side Postgres filters in some edge cases.
+        // Subscribe to ALL message events (Global Channel for robustness)
+        // Subscribe to ALL message events (Global Channel for robustness)
+        // STRICT USER REQUEST implementation
         const channel = supabase
-            .channel(`messages:${conversationId}`)
+            .channel('room_' + conversationId + '_' + Date.now()) // Dynamic Channel as requested
             .on('postgres_changes', {
-                event: 'INSERT',
+                event: '*',
                 schema: 'public',
-                table: 'direct_messages',
-                filter: `conversation_id=eq.${conversationId}`
+                table: 'direct_messages'
+                // NO FILTER AS REQUESTED
             }, (payload) => {
+                // LOG OBRIGATÓRIO PARA DEBUG
+                console.log('🔔 EVENTO RECEBIDO:', payload);
+
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const newMsg = payload.new as any;
-                setMessages(prev => {
-                    // Prevent duplicates
-                    if (prev.some(msg => msg.id === newMsg.id)) return prev;
-                    return [...prev, {
-                        id: newMsg.id,
-                        senderId: newMsg.sender_id,
-                        text: newMsg.text,
-                        timestamp: newMsg.created_at,
-                        author: '',
-                        avatar: ''
-                    }];
-                });
+                const eventType = payload.eventType;
+
+                // 1. Tratamento de UPDATE (Check Azul)
+                if (eventType === 'UPDATE') {
+                    // Log de Diagnóstico Profundo REQUERIDO
+                    console.log("🔄 TENTANDO ATUALIZAR MSG:", newMsg.id, "STATUS:", newMsg.status);
+
+                    setMessages((prev) => prev.map(msg =>
+                        // Normalização de IDs (String vs String)
+                        String(msg.id) === String(newMsg.id)
+                            ? { ...msg, ...newMsg } // Merge all new fields
+                            : msg
+                    ));
+                }
+
+                // 2. Tratamento de INSERT (Nova Mensagem)
+                if (eventType === 'INSERT') {
+                    // Só adiciona se pertencer a ESTA conversa
+                    const isForThisChat = newMsg.conversation_id === conversationId;
+
+                    if (isForThisChat) {
+                        setMessages((prev) => {
+                            // Deduplicação com conversão para String
+                            if (prev.some(m => String(m.id) === String(newMsg.id))) return prev;
+
+                            // Optimistic UI check
+                            if (user && newMsg.sender_id === user.id) return prev;
+
+                            return [...prev, {
+                                id: newMsg.id,
+                                senderId: newMsg.sender_id,
+                                text: newMsg.text,
+                                timestamp: newMsg.created_at,
+                                author: '',
+                                avatar: '',
+                                mediaUrl: newMsg.media_url,
+                                mediaType: newMsg.media_type,
+                                status: newMsg.status || 'sent'
+                            }];
+                        });
+                    }
+                }
             })
-            .subscribe();
+            .subscribe((status) => {
+                console.log("📡 STATUS CONEXÃO REALTIME:", status);
+            });
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [conversationId]);
+    }, [conversationId, user]);
 
     return { messages, loading, setMessages };
 }

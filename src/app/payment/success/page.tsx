@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,7 +11,18 @@ import { CheckCircle2, Ticket, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 
-export default function PaymentSuccessPage() {
+function PaymentLoading() {
+    return (
+        <AppLayout>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                <p className="text-muted-foreground">Carregando...</p>
+            </div>
+        </AppLayout>
+    );
+}
+
+function PaymentSuccessContent() {
     const searchParams = useSearchParams();
     const { user, loading: authLoading } = useAuth();
     const { toast } = useToast();
@@ -108,14 +119,7 @@ export default function PaymentSuccessPage() {
     }, [authLoading, user, statusParam, paymentId, toast]);
 
     if (authLoading || status === 'validating') {
-        return (
-            <AppLayout>
-                <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                    <p className="text-muted-foreground">Validando seu pagamento...</p>
-                </div>
-            </AppLayout>
-        )
+        return <PaymentLoading />;
     }
 
     if (status === 'error') {
@@ -169,5 +173,13 @@ export default function PaymentSuccessPage() {
                 </Card>
             </div>
         </AppLayout>
+    );
+}
+
+export default function PaymentSuccessPage() {
+    return (
+        <Suspense fallback={<PaymentLoading />}>
+            <PaymentSuccessContent />
+        </Suspense>
     );
 }

@@ -28,36 +28,47 @@ export async function POST(req: NextRequest) {
         }
         */
 
+        let appUrl = process.env.NEXT_PUBLIC_APP_URL || req.headers.get('origin') || 'http://localhost:9002';
+        // Ensure appUrl doesn't have trailing slash
+        appUrl = appUrl.replace(/\/$/, "");
+
+        if (!appUrl.startsWith("http")) {
+            console.warn("WARNING: appUrl does not start with http/https. Fallback to localhost.");
+            appUrl = "http://localhost:9002";
+        }
+
         const preference = new Preference(client);
 
-        const result = await preference.create({
+        const preferenceData = {
             body: {
                 items: [
                     {
                         id: eventId,
-                        title: title,
-                        quantity: quantity || 1,
-                        unit_price: Number(price),
+                        title: title.substring(0, 255), // limit title length
+                        quantity: Number(quantity) || 1,
+                        unit_price: Number(price), // Ensure it's a number
                         currency_id: 'BRL',
                     }
                 ],
                 payer: {
                     email: email || 'test_user_123@test.com', // MP requires valid email format
-                    name: payerFirstName,
-                    surname: payerLastName
+                    name: payerFirstName || 'Guest',
+                    surname: payerLastName || 'User'
                 },
                 back_urls: {
-                    success: `${process.env.NEXT_PUBLIC_APP_URL || req.headers.get('origin')}/payment/success`,
-                    failure: `${process.env.NEXT_PUBLIC_APP_URL || req.headers.get('origin')}/payment/failure`,
-                    pending: `${process.env.NEXT_PUBLIC_APP_URL || req.headers.get('origin')}/payment/failure`,
+                    success: `${appUrl}/payment/success`,
+                    failure: `${appUrl}/payment/failure`,
+                    pending: `${appUrl}/payment/failure`,
                 },
-                auto_return: 'approved',
+                auto_return: appUrl.includes('localhost') ? undefined : 'approved',
                 metadata: {
                     user_id: userId,
                     event_id: eventId,
                 }
             }
-        });
+        };
+
+        const result = await preference.create(preferenceData);
 
         return NextResponse.json({
             id: result.id,

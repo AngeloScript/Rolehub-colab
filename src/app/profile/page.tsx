@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ClientOnly } from "@/components/ClientOnly";
+import { FollowRequestsSection } from '@/components/profile/FollowRequestsSection';
 
 const ProfileSkeleton = () => (
   <div className="pb-24 md:pb-4">
@@ -68,7 +69,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
-      setEditedUser({ name: user.name, bio: user.bio, relationshipStatus: user.relationshipStatus });
+      setEditedUser({
+        name: user.name,
+        bio: user.bio,
+        relationshipStatus: user.relationshipStatus,
+        isPrivate: user.isPrivate || false
+      });
     }
   }, [user]);
 
@@ -184,7 +190,8 @@ export default function ProfilePage() {
         .update({
           name: editedUser.name,
           bio: editedUser.bio,
-          relationship_status: editedUser.relationshipStatus
+          relationship_status: editedUser.relationshipStatus,
+          is_private: editedUser.isPrivate
         })
         .eq('id', authUser.id);
 
@@ -305,6 +312,11 @@ export default function ProfilePage() {
           <PageHeader title="Meu Perfil" actionIcon={LogOut} onAction={handleLogout} />
 
           <main className="px-4 max-w-4xl mx-auto">
+            {/* Follow Requests Section */}
+            {user.isPrivate && (
+              <FollowRequestsSection userId={user.id} />
+            )}
+
             <div className="flex flex-col md:flex-row items-center text-center md:text-left gap-6 pt-8 pb-4">
               <div className="relative flex-shrink-0">
                 <input
@@ -415,6 +427,24 @@ export default function ProfilePage() {
                         </div>
                       </RadioGroup>
                     </div>
+
+                    <div className="flex items-center space-x-2 pt-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="private-mode"
+                          aria-label="Conta Privada"
+                          checked={editedUser.isPrivate || false}
+                          onChange={(e) => setEditedUser({ ...editedUser, isPrivate: e.target.checked })}
+                          className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <Label htmlFor="private-mode" className="font-semibold cursor-pointer">Conta Privada</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground ml-2">
+                        Se ativado, apenas seus seguidores poderão ver seus eventos e detalhes.
+                      </p>
+                    </div>
+
                     <div className="flex gap-2 pt-2">
                       <Button onClick={() => setIsEditing(false)} variant="outline">Cancelar</Button>
                       <Button onClick={handleSaveChanges} className="w-full bg-primary hover:bg-primary/90" disabled={isSaving}>

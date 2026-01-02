@@ -89,7 +89,7 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
     if (userData && user) {
       setIsFollowing(userData.following?.includes(user.id) || false);
     }
-  }, [userData?.following, user?.id]);
+  }, [userData, user]);
 
   const handleFollowToggle = async () => {
     if (!authUser || !user || authUser.id === user.id) return;

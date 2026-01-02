@@ -42,6 +42,7 @@ export type Event = {
   organizer?: User; // Add organizer details
   price?: number;
   currency?: string;
+  privacy: 'public' | 'private';
 };
 
 export type Ticket = {
@@ -67,6 +68,16 @@ export type User = {
   followers: number;
   checkIns: number;
   isMock?: boolean;
+  isPrivate?: boolean; // New privacy flag
+};
+
+export type FollowRequest = {
+  id: string;
+  followerId: string;
+  targetId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+  follower?: User; // Hydrated follower data
 };
 
 
@@ -77,6 +88,9 @@ export type Message = {
   avatar: string;
   text: string;
   timestamp: string;
+  status?: 'sent' | 'delivered' | 'read' | 'sending';
+  mediaUrl?: string;
+  mediaType?: 'image' | 'audio' | 'video';
 };
 
 export type Notification = {
@@ -96,4 +110,13 @@ export type Conversation = {
   timestamp: string;
   unread: boolean;
 }
+
+export type ChatConversation = {
+  id: string;
+  participants: string[];
+  lastMessage: string;
+  lastMessageTimestamp: string;
+  unread: boolean;
+  otherUser?: User;
+};
 

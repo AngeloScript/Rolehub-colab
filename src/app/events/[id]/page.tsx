@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button'; // Ensure Button is imported
+import { Lock, Loader2 } from 'lucide-react';
 import type { Comment, Event } from '@/lib/types';
 
 import { EventHeader } from '@/components/event/EventHeader';
@@ -76,6 +78,7 @@ export default function EventDetail() {
           primaryColor: eventData.primary_color,
           backgroundColor: eventData.background_color,
           secondaryColor: eventData.secondary_color,
+          privacy: eventData.privacy || 'public',
           confirmedAttendees: [], // Will fetch separately
         };
 
@@ -278,6 +281,40 @@ export default function EventDetail() {
     }
   };
 
+  const handleRequestAccess = async () => {
+    if (!authUser || !event) return;
+    setIsConfirming(true);
+    try {
+      const { error } = await supabase
+        .from('attendees')
+        .insert({
+          event_id: event.id,
+          user_id: authUser.id,
+          status: 'pending' // pending approval
+        });
+
+      if (error) throw error;
+
+      toast({ title: "Solicitação enviada!", description: "Aguarde a aprovação do organizador." });
+
+      // Notify organizer
+      if (event.organizerId) {
+        await createNotification(
+          event.organizerId,
+          'event_confirmation', // Reusing type
+          `<strong>${userData?.name}</strong> pediu para participar do evento <strong>${event.title}</strong>`,
+          `/events/${event.id}` // Redirect to event page where organizer can approve (future impl)
+        );
+      }
+
+    } catch (error) {
+      console.error("Error requesting access:", error);
+      toast({ variant: "destructive", title: "Erro ao solicitar acesso", description: "Tente novamente." });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   const handleBuyTicket = async () => {
     if (!authUser || !event) {
       toast({ title: "Faça login para comprar", variant: "destructive" });
@@ -442,6 +479,19 @@ export default function EventDetail() {
   const handleDeleteEvent = async () => {
     if (!event) return;
     try {
+      // Manually delete related records first to avoid FK constraints
+      const { error: commentsError } = await supabase.from('comments').delete().eq('event_id', event.id);
+      if (commentsError) throw commentsError;
+
+      const { error: attendeesError } = await supabase.from('attendees').delete().eq('event_id', event.id);
+      if (attendeesError) throw attendeesError;
+
+      const { error: ticketsError } = await supabase.from('tickets').delete().eq('event_id', event.id);
+      if (ticketsError) throw ticketsError;
+
+      const { error: photosError } = await supabase.from('event_photos').delete().eq('event_id', event.id);
+      if (photosError) throw photosError;
+
       const { error } = await supabase.from('events').delete().eq('id', event.id);
       if (error) throw error;
 
@@ -569,67 +619,95 @@ export default function EventDetail() {
                 onDelete={handleDeleteEvent}
               />
 
-              <main className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto p-4 md:p-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-                    <div className="flex-grow w-full">
-                      <EventInfo
-                        event={event}
-                        isEventToday={isEventTodayClient}
-                        isCheckedIn={isCheckedIn}
-                        authUser={userData}
-                        onCheckIn={handleCheckIn}
+              {event.privacy === 'private' && !isOrganizer && !isGoing ? (
+                <main className="max-w-3xl mx-auto p-4 md:p-12 text-center space-y-6">
+                  <div className="w-24 h-24 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Lock className="w-10 h-10 text-muted-foreground" />
+                  </div>
+                  <h1 className="text-2xl font-bold">Este evento é privado</h1>
+                  <p className="text-muted-foreground text-lg">
+                    Os detalhes deste evento são visíveis apenas para convidados confirmados.
+                  </p>
+                  {!authUser && (
+                    <Button onClick={() => router.push('/login')} variant="secondary" className="mt-4">
+                      Fazer Login
+                    </Button>
+                  )}
+                  {/* 
+                     TODO: Add "Request Access" button here in the future
+                     For now, since we don't have an invite flow, we just show locked state. 
+                   */}
+                  {authUser && !isOrganizer && !isGoing && (
+                    <Button onClick={handleRequestAccess} className="mt-4" disabled={isConfirming}>
+                      {isConfirming ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Solicitar Acesso
+                    </Button>
+                  )}
+                </main>
+              ) : (
+
+                <main className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto p-4 md:p-6">
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                      <div className="flex-grow w-full">
+                        <EventInfo
+                          event={event}
+                          isEventToday={isEventTodayClient}
+                          isCheckedIn={isCheckedIn}
+                          authUser={userData}
+                          onCheckIn={handleCheckIn}
+                        />
+                      </div>
+                      <EventActions
+                        eventId={event.id}
+                        eventTitle={event.title}
+                        eventDescription={event.description}
+                        isGoing={isGoing}
+                        isConfirming={isConfirming}
+                        isSaved={isSaved}
+                        isSaving={isSaving}
+                        onToggleGoing={handleGoingToggle}
+                        onToggleSave={handleSaveToggle}
+                        price={event.price}
+                        currency={event.currency}
+                        onBuyTicket={handleBuyTicket}
                       />
                     </div>
-                    <EventActions
-                      eventId={event.id}
-                      eventTitle={event.title}
-                      eventDescription={event.description}
+
+                    <Separator className="bg-border/20" />
+
+                    <EventLocation event={event} />
+
+                    <EventGallery eventId={event.id} eventDate={event.date} />
+
+                    <EventComments
+                      event={event}
+                      comments={comments}
+                      authUser={userData}
+                      onPostComment={handlePostComment}
+                      onLikeComment={handleLikeComment}
+                      isPostingComment={isPostingComment}
                       isGoing={isGoing}
-                      isConfirming={isConfirming}
-                      isSaved={isSaved}
-                      isSaving={isSaving}
-                      onToggleGoing={handleGoingToggle}
-                      onToggleSave={handleSaveToggle}
-                      price={event.price}
-                      currency={event.currency}
-                      onBuyTicket={handleBuyTicket}
                     />
                   </div>
 
-                  <Separator className="bg-border/20" />
+                  <div className="space-y-6">
+                    <EventCountdown eventDate={event.fullDate || event.date} eventTime={event.time} />
 
-                  <EventLocation event={event} />
+                    <EventAttendees eventId={event.id} />
 
-                  <EventGallery eventId={event.id} eventDate={event.date} />
+                    <EventVibeCheck
+                      event={event}
+                      vibes={event.vibes}
+                      vibeVote={vibeVote}
+                      onVote={handleVoteVibe}
+                      authUser={authUser}
+                    />
 
-                  <EventComments
-                    event={event}
-                    comments={comments}
-                    authUser={userData}
-                    onPostComment={handlePostComment}
-                    onLikeComment={handleLikeComment}
-                    isPostingComment={isPostingComment}
-                    isGoing={isGoing}
-                  />
-                </div>
-
-                <div className="space-y-6">
-                  <EventCountdown eventDate={event.fullDate || event.date} eventTime={event.time} />
-
-                  <EventAttendees eventId={event.id} />
-
-                  <EventVibeCheck
-                    event={event}
-                    vibes={event.vibes}
-                    vibeVote={vibeVote}
-                    onVote={handleVoteVibe}
-                    authUser={authUser}
-                  />
-
-                  <EventTips />
-                </div>
-              </main>
+                    <EventTips />
+                  </div>
+                </main>
+              )}
             </div>
           </motion.div>
         </ClientOnly>
