@@ -38,7 +38,7 @@ export function UnreadProvider({ children }: { children: ReactNode }) {
 
                 // Fetch ALL unread messages for me in one go (more efficient than loop)
                 // We count messages where I am NOT the sender AND read is false AND conversation ID matches one of mine.
-                const conversationIds = conversations.map(c => c.id);
+                const conversationIds = (conversations || []).map(c => c.id);
 
                 if (conversationIds.length > 0) {
                     const { count } = await supabase

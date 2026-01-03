@@ -29,6 +29,7 @@ interface EventActionsProps {
     price?: number;
     currency?: string;
     onBuyTicket?: () => void;
+    requestStatus?: 'idle' | 'pending' | 'confirmed' | 'rejected' | null;
 }
 
 export function EventActions({
@@ -43,7 +44,8 @@ export function EventActions({
     onToggleSave,
     price = 0,
     currency = 'BRL',
-    onBuyTicket
+    onBuyTicket,
+    requestStatus
 }: EventActionsProps) {
     const isPaid = price > 0;
     const formattedPrice = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency }).format(price);
@@ -80,6 +82,21 @@ export function EventActions({
                     </AlertDialogContent>
                 </AlertDialog>
             )
+        }
+
+        // Private Event - Pending Request
+        if (requestStatus === 'pending') {
+            return (
+                <Button
+                    variant="secondary"
+                    size="lg"
+                    className="flex-1 cursor-default text-muted-foreground bg-muted"
+                    disabled
+                >
+                    <UserCheck className="w-5 h-5 mr-2" />
+                    Solicitado
+                </Button>
+            );
         }
 
         return (

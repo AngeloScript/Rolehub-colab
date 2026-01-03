@@ -41,7 +41,7 @@ export function useChat() {
             if (data !== null) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const convs = await Promise.all(data.map(async (conv: any) => {
-                    const otherUserId = conv.participants.find((p: string) => p !== user.id);
+                    const otherUserId = conv.participants.find((p: string) => String(p) !== String(user.id));
                     let otherUser: User | undefined;
 
                     if (otherUserId) {
@@ -249,7 +249,7 @@ export function useMessages(conversationId: string) {
                             if (prev.some(m => String(m.id) === String(newMsg.id))) return prev;
 
                             // Optimistic UI check
-                            if (user && newMsg.sender_id === user.id) return prev;
+                            if (user && String(newMsg.sender_id) === String(user.id)) return prev;
 
                             return [...prev, {
                                 id: newMsg.id,

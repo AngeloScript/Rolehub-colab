@@ -16,9 +16,11 @@ interface InteractiveMapProps {
     zoom?: number;
     className?: string;
     singleEvent?: boolean;
+    markerVariant?: 'pin' | 'bubble';
+    onEventSelect?: (event: Event) => void;
 }
 
-export function InteractiveMap({ events, zoom = 13, className, singleEvent = false }: InteractiveMapProps) {
+export function InteractiveMap({ events, zoom = 13, className, singleEvent = false, markerVariant = 'pin', onEventSelect }: InteractiveMapProps) {
     const mapRef = useRef<MapRef>(null);
     const router = useRouter();
     const [popupInfo, setPopupInfo] = useState<Event | null>(null);
@@ -87,18 +89,40 @@ export function InteractiveMap({ events, zoom = 13, className, singleEvent = fal
                             key={event.id}
                             longitude={event.longitude!}
                             latitude={event.latitude!}
-                            anchor="bottom"
+                            anchor={markerVariant === 'bubble' ? 'center' : 'bottom'}
                             onClick={e => {
                                 e.originalEvent.stopPropagation();
-                                if (!singleEvent) {
+                                if (onEventSelect) {
+                                    onEventSelect(event);
+                                } else if (!singleEvent) {
                                     setPopupInfo(event);
                                 }
                             }}
                         >
-                            <div className="relative cursor-pointer transition-transform hover:scale-110">
-                                <MapPin size={40} className="text-background drop-shadow-lg" fill="hsl(var(--background))" strokeWidth={1} />
-                                <MapPin size={32} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[65%]" style={{ color: primaryColor }} fill={primaryColor} strokeWidth={1.5} stroke="hsl(var(--background))" />
-                            </div>
+                            {markerVariant === 'bubble' ? (
+                                <div className="group relative cursor-pointer transform transition-all duration-300 hover:scale-110 hover:z-50">
+                                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-lg bg-background relative z-10 transition-transform group-hover:scale-105">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={event.image_url || event.image || '/placeholder-event.jpg'}
+                                            alt={event.title}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.src = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=60';
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border border-white z-20 shadow-sm">
+                                        <MapPin size={12} className="text-primary-foreground" />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="relative cursor-pointer transition-transform hover:scale-110">
+                                    <MapPin size={40} className="text-background drop-shadow-lg" fill="hsl(var(--background))" strokeWidth={1} />
+                                    <MapPin size={32} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[65%]" style={{ color: primaryColor }} fill={primaryColor} strokeWidth={1.5} stroke="hsl(var(--background))" />
+                                </div>
+                            )}
                         </Marker>
                     );
                 })}

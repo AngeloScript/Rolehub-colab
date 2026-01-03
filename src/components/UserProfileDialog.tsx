@@ -22,7 +22,7 @@ type UserProfileDialogProps = {
 };
 
 export function UserProfileDialog({ user: initialUser, userId, children }: UserProfileDialogProps) {
-  const { user: authUser, userData } = useAuth();
+  const { user: authUser, userData, updateLocalUserData } = useAuth();
   const { toast } = useToast();
   const [isFollowing, setIsFollowing] = useState(false);
   const [isUpdatingFollow, setIsUpdatingFollow] = useState(false);
@@ -91,6 +91,8 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
     }
   }, [userData, user]);
 
+  // ... (rest of component state)
+
   const handleFollowToggle = async () => {
     if (!authUser || !user || authUser.id === user.id) return;
 
@@ -99,19 +101,31 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
 
     setIsUpdatingFollow(true);
 
-    // 1. Optimistic Update
+    // 1. Snapshot previous state
     const previousIsFollowing = isFollowing;
     const previousFollowers = user.followers || 0;
+    const previousUserData = { ...userData };
 
-    // Determine new state
+    // 2. Calculate new state
     const newIsFollowing = !previousIsFollowing;
     const newFollowers = newIsFollowing
       ? previousFollowers + 1
       : Math.max(0, previousFollowers - 1);
 
-    // Apply optimistic updates immediately
+    // 3. Apply Optimistic Updates GLOBALLY and LOCALLY
+    // Local component state
     setIsFollowing(newIsFollowing);
     setUser(prev => prev ? ({ ...prev, followers: newFollowers }) : undefined);
+
+    // Global auth context state (so other screens update instantly)
+    let newFollowingList = [...(userData?.following || [])];
+    if (newIsFollowing) {
+      if (!newFollowingList.includes(user.id)) newFollowingList.push(user.id);
+    } else {
+      newFollowingList = newFollowingList.filter(id => id !== user.id);
+    }
+    updateLocalUserData({ following: newFollowingList });
+
 
     // Show instant feedback
     toast({
@@ -121,9 +135,9 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
     });
 
     try {
-      // 2. Perform DB Operations
+      // 4. Perform DB Operations in Background
 
-      // Get current following list
+      // Get current following list from DB to be safe (or rely on what we just calculated if we trust it)
       const { data: currentUserData, error: currentUserError } = await supabase
         .from('users')
         .select('following')
@@ -134,7 +148,6 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
 
       let currentFollowing = currentUserData.following || [];
 
-      // Ensure consistency with action
       if (newIsFollowing) {
         if (!currentFollowing.includes(user.id)) {
           currentFollowing = [...currentFollowing, user.id];
@@ -161,8 +174,7 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
 
       if (updateFollowingError) throw updateFollowingError;
 
-      // Update 'followers' count on target user (best effort)
-      // We use the calculated value to sync, but ideally this would be an RPC increment/decrement
+      // Update 'followers' count on target user
       const { error: updateFollowersError } = await supabase
         .from('users')
         .update({ followers: newFollowers })
@@ -171,12 +183,13 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
       if (updateFollowersError) console.warn("Could not update followers count (RLS?):", updateFollowersError);
 
     } catch (error) {
-      console.error('Error updating follow status:', JSON.stringify(error, null, 2));
+      console.error('Error updating follow status:', error);
       toast({ variant: 'destructive', title: 'Erro ao atualizar', description: "Desfazendo alteração..." });
 
-      // Revert optimistic update on error
+      // 5. Revert optimistic updates on error
       setIsFollowing(previousIsFollowing);
       setUser(prev => prev ? ({ ...prev, followers: previousFollowers }) : undefined);
+      updateLocalUserData({ following: previousUserData.following }); // Revert global state
     } finally {
       setIsUpdatingFollow(false);
     }

@@ -12,7 +12,7 @@ interface ChatListProps {
 export function ChatList({ conversations }: ChatListProps) {
     return (
         <div className="space-y-1">
-            {conversations.map((conv) => (
+            {(conversations || []).map((conv) => (
                 <Link
                     key={conv.id}
                     href={`/messages/${conv.otherUser?.id || conv.id}`}

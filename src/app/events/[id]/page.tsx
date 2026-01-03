@@ -24,6 +24,7 @@ import { EventCountdown } from '@/components/event/EventCountdown';
 import { EventGallery } from '@/components/event/EventGallery';
 import { EventTips } from '@/components/event/EventTips';
 import { ClientOnly } from '@/components/ClientOnly';
+import { EventRequestsList } from '@/components/event/EventRequestsList';
 
 export default function EventDetail() {
   const params = useParams();
@@ -44,6 +45,24 @@ export default function EventDetail() {
 
   const isSaved = useMemo(() => userData?.savedEvents?.includes(eventId) || false, [userData, eventId]);
   const isGoing = useMemo(() => event?.confirmedAttendees?.includes(authUser?.id || '') || false, [event, authUser]);
+  const [isRequestPending, setIsRequestPending] = useState(false);
+
+  useEffect(() => {
+    async function checkPendingStatus() {
+      if (!event || !authUser) return;
+      const { data } = await supabase
+        .from('attendees')
+        .select('status')
+        .eq('event_id', event.id)
+        .eq('user_id', authUser.id)
+        .single();
+
+      if (data && data.status === 'pending') {
+        setIsRequestPending(true);
+      }
+    }
+    checkPendingStatus();
+  }, [event, authUser]);
 
   useEffect(() => {
     if (!eventId || authLoading) {
@@ -236,7 +255,7 @@ export default function EventDetail() {
 
     try {
       if (isGoing) {
-        // Remove from attendees
+        // LEAVE event (Cancel attendance)
         const { error } = await supabase
           .from('attendees')
           .delete()
@@ -245,75 +264,76 @@ export default function EventDetail() {
 
         if (error) throw error;
 
+        // Optimistic frontend update
         setEvent(prev => prev ? ({
           ...prev,
           confirmedAttendees: prev.confirmedAttendees.filter(id => id !== authUser.id),
           participants: Math.max(0, prev.participants - 1)
         }) : null);
+        setIsRequestPending(false); // Reset pending state if they leave (even if they were pending)
 
         toast({ title: "Você não vai mais" });
+
       } else {
-        // Add to attendees
+        // JOIN event
+        const isPrivate = event.privacy === 'private';
+        const initialStatus = isPrivate ? 'pending' : 'confirmed';
+
+        // Check if there's already a pending request to be sure
+        if (isRequestPending) {
+          toast({ title: "Solicitação já enviada.", description: "Aguarde a aprovação." });
+          setIsConfirming(false);
+          return;
+        }
+
         const { error } = await supabase
           .from('attendees')
           .insert({
             event_id: event.id,
             user_id: authUser.id,
-            status: 'confirmed'
+            status: initialStatus
           });
 
         if (error) throw error;
 
-        setEvent(prev => prev ? ({
-          ...prev,
-          confirmedAttendees: [...prev.confirmedAttendees, authUser.id],
-          participants: prev.participants + 1
-        }) : null);
+        if (isPrivate) {
+          // Logic for PRIVATE event
+          setIsRequestPending(true);
+          toast({ title: "Solicitação enviada!", description: "Aguarde a aprovação do organizador." });
 
-        toast({ title: "Presença confirmada!" });
+          // Notify organizer
+          if (event.organizerId) {
+            await createNotification(
+              event.organizerId,
+              'event_confirmation',
+              `<strong>${userData?.name}</strong> pediu para participar do evento <strong>${event.title}</strong>`,
+              `/events/${event.id}`
+            );
+          }
+
+        } else {
+          // Logic for PUBLIC event
+          setEvent(prev => prev ? ({
+            ...prev,
+            confirmedAttendees: [...prev.confirmedAttendees, authUser.id],
+            participants: prev.participants + 1
+          }) : null);
+
+          toast({ title: "Presença confirmada!" });
+        }
       }
 
     } catch (error) {
       console.error("Error updating presence:", error);
-      toast({ variant: "destructive", title: "Erro ao confirmar", description: "Tente novamente mais tarde." });
+      toast({ variant: "destructive", title: "Erro ao atualizar", description: "Tente novamente mais tarde." });
     } finally {
       setIsConfirming(false);
     }
   };
 
-  const handleRequestAccess = async () => {
-    if (!authUser || !event) return;
-    setIsConfirming(true);
-    try {
-      const { error } = await supabase
-        .from('attendees')
-        .insert({
-          event_id: event.id,
-          user_id: authUser.id,
-          status: 'pending' // pending approval
-        });
-
-      if (error) throw error;
-
-      toast({ title: "Solicitação enviada!", description: "Aguarde a aprovação do organizador." });
-
-      // Notify organizer
-      if (event.organizerId) {
-        await createNotification(
-          event.organizerId,
-          'event_confirmation', // Reusing type
-          `<strong>${userData?.name}</strong> pediu para participar do evento <strong>${event.title}</strong>`,
-          `/events/${event.id}` // Redirect to event page where organizer can approve (future impl)
-        );
-      }
-
-    } catch (error) {
-      console.error("Error requesting access:", error);
-      toast({ variant: "destructive", title: "Erro ao solicitar acesso", description: "Tente novamente." });
-    } finally {
-      setIsConfirming(false);
-    }
-  };
+  // Deprecated/Merged: handleRequestAccess is now handled by handleGoingToggle logic
+  // keeping it as a wrapper if needed or removing usage.
+  const handleRequestAccess = handleGoingToggle;
 
   const handleBuyTicket = async () => {
     if (!authUser || !event) {
@@ -455,7 +475,7 @@ export default function EventDetail() {
   const handleLikeComment = async (commentId: string) => {
     if (!authUser || !event) return;
 
-    const comment = comments.find(c => c.id === commentId);
+    const comment = comments.find(c => String(c.id) === String(commentId));
     if (!comment) return;
 
     const isLiked = comment.likes?.includes(authUser.id);
@@ -512,7 +532,7 @@ export default function EventDetail() {
 
 
 
-  const isOrganizer = authUser?.id === event?.organizerId;
+  const isOrganizer = String(authUser?.id) === String(event?.organizerId);
   const [isEventTodayClient, setIsEventTodayClient] = useState(false);
 
   useEffect(() => {
@@ -634,10 +654,15 @@ export default function EventDetail() {
                     </Button>
                   )}
                   {/* 
-                     TODO: Add "Request Access" button here in the future
-                     For now, since we don't have an invite flow, we just show locked state. 
+                     Request Access Logic
                    */}
-                  {authUser && !isOrganizer && !isGoing && (
+                  {authUser && !isOrganizer && !isGoing && isRequestPending && (
+                    <Button disabled variant="secondary" className="mt-4 cursor-default">
+                      <Loader2 className="w-4 h-4 mr-2" />
+                      Solicitação Enviada
+                    </Button>
+                  )}
+                  {authUser && !isOrganizer && !isGoing && !isRequestPending && (
                     <Button onClick={handleRequestAccess} className="mt-4" disabled={isConfirming}>
                       {isConfirming ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                       Solicitar Acesso
@@ -648,6 +673,11 @@ export default function EventDetail() {
 
                 <main className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto p-4 md:p-6">
                   <div className="lg:col-span-2 space-y-6">
+                    {/* Organizer Request List */}
+                    {isOrganizer && event.privacy === 'private' && (
+                      <EventRequestsList eventId={event.id} />
+                    )}
+
                     <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                       <div className="flex-grow w-full">
                         <EventInfo
@@ -671,6 +701,7 @@ export default function EventDetail() {
                         price={event.price}
                         currency={event.currency}
                         onBuyTicket={handleBuyTicket}
+                        requestStatus={isRequestPending ? 'pending' : null}
                       />
                     </div>
 

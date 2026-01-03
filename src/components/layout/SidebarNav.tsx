@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Users, LogOut, MessageCircle, PlusSquare, Bell, Calendar, Ticket } from 'lucide-react';
+import { Home, Users, LogOut, MessageCircle, PlusSquare, Bell, Calendar, Ticket, Compass } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import { RoleHubAnimatedLogo } from '../RoleHubAnimatedLogo';
@@ -15,6 +15,7 @@ import { useNotifications } from '@/hooks/use-notifications';
 
 const navItems = [
   { href: '/events', icon: Home, label: 'Eventos' },
+  { href: '/explore', icon: Compass, label: 'Explorar' },
   { href: '/calendar', icon: Calendar, label: 'Calendário' },
   { href: '/search', icon: Users, label: 'Procurar' },
   { href: '/messages', icon: MessageCircle, label: 'Mensagens' },

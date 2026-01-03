@@ -18,6 +18,7 @@ export type Event = {
   image_url?: string; // DB field alias
   date: string;
   fullDate?: string; // ISO string for countdown
+  date_time?: string; // DB field
   time: string;
   createdAt: string;
   location: string; // Full address from geocoding

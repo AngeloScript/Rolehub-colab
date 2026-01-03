@@ -190,8 +190,8 @@ export function EventChat({ eventId, isGoing }: EventChatProps) {
         <div className="flex flex-col h-[60vh]">
             <div ref={scrollAreaRef} className="flex-grow overflow-y-auto space-y-4 pr-2">
                 {messages.map((msg) => (
-                    <div key={msg.id} className={cn("flex items-end gap-2", msg.senderId === authUser?.id ? "justify-end" : "justify-start")}>
-                        {msg.senderId !== authUser?.id && (
+                    <div key={msg.id} className={cn("flex items-end gap-2", String(msg.senderId) === String(authUser?.id) ? "justify-end" : "justify-start")}>
+                        {String(msg.senderId) !== String(authUser?.id) && (
                             <UserProfileDialog userId={msg.senderId}>
                                 <Avatar className="w-8 h-8 cursor-pointer">
                                     <AvatarImage src={msg.avatar} alt={msg.author} />

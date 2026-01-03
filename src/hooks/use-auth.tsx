@@ -11,6 +11,7 @@ interface AuthContextType {
   loading: boolean;
   session: Session | null;
   refreshUserData: () => Promise<void>;
+  updateLocalUserData: (data: Partial<AppUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   session: null,
   refreshUserData: async () => { },
+  updateLocalUserData: () => { },
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -29,11 +31,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (!session) setLoading(false);
-    });
+    // Check active session
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error("Error checking session:", error);
+          if (error.message.includes("Invalid Refresh Token") || error.message.includes("Refresh Token Not Found")) {
+            console.warn("Invalid refresh token, signing out...");
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+        }
+
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (!session) setLoading(false);
+      } catch (err: unknown) {
+        console.error("Unexpected error in checkSession:", err);
+        if (err instanceof Error && err.message.includes("Invalid Refresh Token")) {
+          await supabase.auth.signOut();
+        }
+        setLoading(false);
+      }
+    };
+
+    checkSession();
 
     // Listen for auth changes
     const {
@@ -62,18 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.error("Error fetching user data:", error);
           setUserData(null);
-        } else {
+        } else if (data) {
           const mappedUser: AppUser = {
-            id: data.id,
-            name: data.name,
-            email: data.email,
-            avatar: data.avatar,
-            savedEvents: data.saved_events || [],
-            relationshipStatus: data.relationship_status,
-            bio: data.bio,
-            following: data.following || [],
-            followers: data.followers || 0,
-            checkIns: data.check_ins || 0,
+            id: data?.id,
+            name: data?.name,
+            email: data?.email,
+            avatar: data?.avatar,
+            savedEvents: data?.saved_events || [],
+            relationshipStatus: data?.relationship_status,
+            bio: data?.bio,
+            following: data?.following || [],
+            followers: data?.followers || 0,
+            checkIns: data?.check_ins || 0,
             isMock: false
           };
           setUserData(mappedUser);
@@ -97,8 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchUserData();
   };
 
+  const updateLocalUserData = (data: Partial<AppUser>) => {
+    setUserData(prev => prev ? { ...prev, ...data } : null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, userData, loading, session, refreshUserData }}>
+    <AuthContext.Provider value={{ user, userData, loading, session, refreshUserData, updateLocalUserData }}>
       {children}
     </AuthContext.Provider>
   );
