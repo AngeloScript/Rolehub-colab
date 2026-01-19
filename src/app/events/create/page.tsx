@@ -31,6 +31,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DynamicColorCircle } from "@/components/DynamicColorCircle";
+import { TicketLotsManager, TicketLotInput } from "@/components/event/TicketLotsManager";
 
 const DynamicEventMapCreator = dynamic(() => import('@/components/EventMapCreator'), {
   ssr: false,
@@ -70,6 +71,7 @@ export default function CreateEventPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [themeColors] = useState<{ primary: string; background: string; secondary: string; } | null>(null);
   const [customTag, setCustomTag] = useState("");
+  const [lots, setLots] = useState<TicketLotInput[]>([]);
   const router = useRouter();
   const { toast } = useToast();
   const { user: authUser, loading: authLoading } = useAuth();
@@ -215,13 +217,19 @@ export default function CreateEventPage() {
         imageUrl = `https://placehold.co/1280x720.png?text=${encodeURIComponent(data.title)}`;
       }
 
+      // Combine date and time
+      const [hours, minutes] = data.time.split(':').map(Number);
+      const eventDateTime = new Date(data.date);
+      eventDateTime.setHours(hours, minutes, 0, 0);
+
       const { data: eventData, error: insertError } = await supabase
         .from('events')
         .insert({
           title: data.title,
           description: data.description,
           image_url: imageUrl,
-          date: data.date.toISOString(), // Supabase expects ISO string for timestamp
+          date: eventDateTime.toISOString(), // Keep for legacy if needed
+          date_time: eventDateTime.toISOString(), // New standard field
           location: data.location.address,
           location_name: data.locationName,
           organizer_id: authUser.id,
@@ -240,6 +248,29 @@ export default function CreateEventPage() {
         .single();
 
       if (insertError) throw insertError;
+
+      if (lots.length > 0) {
+        const { error: lotsError } = await supabase
+          .from('event_lots')
+          .insert(lots.map(lot => ({
+            event_id: eventData.id,
+            name: lot.name,
+            price: lot.price,
+            quantity: lot.quantity,
+            start_date: lot.startDate,
+            active: lot.active
+          })));
+
+        if (lotsError) {
+          console.error("Error inserting lots:", lotsError);
+          // Optional: delete event or show warning, but for now just warn
+          toast({
+            variant: "destructive",
+            title: "Erro ao criar lotes",
+            description: "O evento foi criado, mas houve um erro ao salvar os lotes de ingressos."
+          });
+        }
+      }
 
       toast({
         title: "Evento Criado com Sucesso!",
@@ -268,7 +299,7 @@ export default function CreateEventPage() {
           <Card className="bg-card/50">
             <CardContent className="p-4 md:p-6">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error("Validation Errors:", JSON.stringify(errors, null, 2)))} className="space-y-6">
                   <FormField
                     control={form.control}
                     name="title"
@@ -314,10 +345,13 @@ export default function CreateEventPage() {
                   <div className="space-y-2">
                     <Label>Banner do Evento</Label>
                     <div className="flex items-center gap-4">
-                      <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={imagePreview || undefined} alt="Preview" className="w-full h-full object-cover" />
-                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                      <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center overflow-hidden shrink-0 relative">
+                        {imagePreview ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                        )}
                       </div>
                       <div className="flex-1 space-y-2">
                         <FormField
@@ -416,6 +450,17 @@ export default function CreateEventPage() {
                         </FormItem>
                       )}
                     />
+
+                    {/* Only show lot manager if price is > 0 or if lots exist */}
+                    {(form.watch("price") > 0 || lots.length > 0) && (
+                      <div className="col-span-1 md:col-span-2 pt-2 pb-4">
+                        <TicketLotsManager
+                          lots={lots}
+                          onChange={setLots}
+                        />
+                      </div>
+                    )}
+
                     <FormField
                       control={form.control}
                       name="maxParticipants"
@@ -661,6 +706,6 @@ export default function CreateEventPage() {
           </Card>
         </main>
       </div>
-    </AppLayout>
+    </AppLayout >
   );
 }

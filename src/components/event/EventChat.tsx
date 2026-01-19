@@ -72,7 +72,7 @@ export function EventChat({ eventId, isGoing }: EventChatProps) {
                 // Let's refetch with join
                 const { data: dataWithUsers, error: joinError } = await supabase
                     .from('chat_messages')
-                    .select('*, user:users!user_id(*)')
+                    .select('*, user:users!user_id(name, avatar)')
                     .eq('event_id', eventId)
                     .order('created_at', { ascending: true });
 

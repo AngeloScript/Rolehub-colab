@@ -89,6 +89,7 @@ export default function EventMapCreator({ onLocationChange, initialAddress }: Ev
         }
 
         setMarkerPosition({ lat: latitude, lng: longitude });
+        setAddress(display_name); // Update local state to match map
 
         onLocationChange({
           lat: latitude,

@@ -54,7 +54,7 @@ export default function ChatPage() {
                 // Fetch other user details
                 const { data: userSnap, error: userError } = await supabase
                     .from('users')
-                    .select('*')
+                    .select('id, name, email, avatar, bio, relationship_status, following, followers, check_ins')
                     .eq('id', recipientId)
                     .single();
 

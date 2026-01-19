@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -44,7 +44,12 @@ export function EventHeader({ event, isOrganizer, onDelete }: EventHeaderProps) 
         </Link>
       </div>
       {isOrganizer && (
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-4 right-4 z-10 flex gap-2">
+          <Link href={`/events/${event.id}/edit`}>
+            <Button variant="secondary" size="icon" className="bg-background/80 hover:bg-background rounded-full h-9 w-9">
+              <Edit className="w-4 h-4 text-foreground" />
+            </Button>
+          </Link>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" size="icon" className="bg-destructive/50 hover:bg-destructive/80 rounded-full h-9 w-9">

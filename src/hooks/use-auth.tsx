@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('*')
+          .select('id, name, email, avatar, bio, relationship_status, check_ins, following, followers, saved_events, is_private, created_at') // Select specific fields only
           .eq('id', user.id)
           .single();
 

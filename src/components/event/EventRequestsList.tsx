@@ -34,7 +34,7 @@ export function EventRequestsList({ eventId }: EventRequestsListProps) {
             try {
                 const { data, error } = await supabase
                     .from('attendees')
-                    .select('user_id, status, users(*)')
+                    .select('user_id, status, users(id, name, email, avatar, bio, relationship_status)')
                     .eq('event_id', eventId)
                     .eq('status', 'pending');
 

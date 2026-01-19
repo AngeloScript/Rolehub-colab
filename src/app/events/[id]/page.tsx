@@ -25,6 +25,8 @@ import { EventGallery } from '@/components/event/EventGallery';
 import { EventTips } from '@/components/event/EventTips';
 import { ClientOnly } from '@/components/ClientOnly';
 import { EventRequestsList } from '@/components/event/EventRequestsList';
+import { EventLotsEditor } from '@/components/event/EventLotsEditor';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 
 export default function EventDetail() {
   const params = useParams();
@@ -80,7 +82,7 @@ export default function EventDetail() {
         // Fetch event details
         const { data: eventData, error: eventError } = await supabase
           .from('events')
-          .select('*, organizer:users!organizer_id(*)') // Join with organizer
+          .select('*, organizer:users!organizer_id(id, name, avatar, bio)') // Join with organizer, specific fields only
           .eq('id', eventId)
           .single();
 
@@ -335,7 +337,7 @@ export default function EventDetail() {
   // keeping it as a wrapper if needed or removing usage.
   const handleRequestAccess = handleGoingToggle;
 
-  const handleBuyTicket = async () => {
+  const handleBuyTicket = async (lotId?: string, price?: number, lotName?: string) => {
     if (!authUser || !event) {
       toast({ title: "Faça login para comprar", variant: "destructive" });
       return;
@@ -345,18 +347,22 @@ export default function EventDetail() {
 
     try {
       // 1. Call API to create Payment Preference
+      const title = lotName ? `Ingresso: ${event.title} - ${lotName}` : `Ingresso: ${event.title}`;
+      const finalPrice = price !== undefined ? price : (event.price || 0);
+
       const response = await fetch('/api/payments/preference', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           eventId: event.id,
-          title: `Ingresso: ${event.title}`,
-          price: event.price || 0,
+          title: title,
+          price: finalPrice,
           quantity: 1,
           userId: authUser.id,
           email: authUser.email,
           payerFirstName: userData?.name.split(' ')[0] || 'Visitante',
-          payerLastName: userData?.name.split(' ').slice(1).join(' ') || ''
+          payerLastName: userData?.name.split(' ').slice(1).join(' ') || '',
+          lotId: lotId // Optional, sending if selected
         })
       });
 
@@ -366,6 +372,7 @@ export default function EventDetail() {
 
       // 2. Save pending event ID to handle success later
       localStorage.setItem('rolehub_pending_event_id', event.id);
+      if (lotId) localStorage.setItem('rolehub_pending_lot_id', lotId);
 
       // 3. Redirect to Mercado Pago Checkout
       if (data.init_point) {
@@ -463,9 +470,10 @@ export default function EventDetail() {
         setComments(prev => [mappedComment, ...prev]);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (error: any) {
-        console.error("Error posting comment:", JSON.stringify(error, null, 2));
-        toast({ variant: 'destructive', title: 'Erro ao postar comentário.', description: error?.message || "Verifique o console para mais detalhes." });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+        console.error("Error posting comment:", error);
+        toast({ variant: 'destructive', title: 'Erro ao postar comentário.', description: errorMessage });
       } finally {
         setIsPostingComment(false);
       }
@@ -633,6 +641,13 @@ export default function EventDetail() {
             </div>
 
             <div className="relative z-10">
+              <div className="max-w-7xl mx-auto px-4 md:px-6 pt-4">
+                <Breadcrumbs items={[
+                  { label: "Eventos", href: "/events" },
+                  { label: event.title, active: true }
+                ]} />
+              </div>
+
               <EventHeader
                 event={event}
                 isOrganizer={isOrganizer}
@@ -703,6 +718,11 @@ export default function EventDetail() {
                         onBuyTicket={handleBuyTicket}
                         requestStatus={isRequestPending ? 'pending' : null}
                       />
+                      {isOrganizer && event.price && event.price > 0 && (
+                        <div className="md:self-center">
+                          <EventLotsEditor eventId={event.id} currency={event.currency} />
+                        </div>
+                      )}
                     </div>
 
                     <Separator className="bg-border/20" />

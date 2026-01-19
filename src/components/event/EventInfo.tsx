@@ -9,6 +9,7 @@ import type { Event, User } from '@/lib/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
+import { AddToCalendar } from '@/components/event/AddToCalendar';
 
 interface EventInfoProps {
     event: Event;
@@ -141,6 +142,17 @@ export function EventInfo({ event, isEventToday, isCheckedIn, authUser, onCheckI
                         <p className="font-semibold text-foreground">{event.organizer?.name || 'Anônimo'}</p>
                     </div>
                 </div>
+
+                <div className="flex justify-start mb-6">
+                    <AddToCalendar event={{
+                        title: event.title,
+                        description: event.description,
+                        location: event.location,
+                        date: event.date,
+                        time: event.time
+                    }} />
+                </div>
+
                 <h2 className="text-xl font-headline font-semibold mb-3 text-[hsl(var(--page-primary))]">Sobre este evento</h2>
                 <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{linkify(event.description)}</p>
             </motion.div>
