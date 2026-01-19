@@ -26,7 +26,7 @@ export default function SearchPage() {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('*')
+          .select('id, name, avatar, bio')
           .limit(50);
 
         if (error) throw error;

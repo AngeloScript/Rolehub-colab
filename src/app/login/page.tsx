@@ -112,9 +112,16 @@ export default function LoginPage() {
         description: "Não foi possível conectar com o provedor. Tente novamente.",
       });
     } finally {
-      // Ideally we don't set loading false here because we are redirecting... 
-      // but if it fails fast we should.
-      setTimeout(() => setIsLoading(false), 2000);
+      // Reset loading state after a delay or if we detect focus returning to the window 
+      // (which happens when popup closes or user cancels)
+      const handleFocus = () => {
+        setIsLoading(false);
+        window.removeEventListener('focus', handleFocus);
+      };
+      window.addEventListener('focus', handleFocus);
+
+      // Fallback timeout just in case
+      setTimeout(() => setIsLoading(false), 5000);
     }
   };
 

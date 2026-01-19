@@ -44,6 +44,18 @@ export type Event = {
   price?: number;
   currency?: string;
   privacy: 'public' | 'private';
+  lots?: EventLot[];
+};
+
+export type EventLot = {
+  id: string;
+  event_id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  start_date: string; // ISO string
+  end_date?: string; // ISO string
+  active: boolean;
 };
 
 export type Ticket = {

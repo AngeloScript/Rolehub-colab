@@ -38,14 +38,28 @@ export function UserProfileDialog({ user: initialUser, userId, children }: UserP
       try {
         const { data: fetchedUser, error } = await supabase
           .from('users')
-          .select('*')
+          .select('id, name, email, avatar, bio, relationship_status, followers, following, is_private, check_ins')
           .eq('id', id)
           .single();
 
         if (error) throw error;
 
         if (fetchedUser) {
-          setUser(fetchedUser as User);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mappedUser: User = {
+            id: fetchedUser.id,
+            name: fetchedUser.name,
+            email: fetchedUser.email,
+            avatar: fetchedUser.avatar,
+            bio: fetchedUser.bio,
+            relationshipStatus: fetchedUser.relationship_status,
+            followers: fetchedUser.followers,
+            following: fetchedUser.following,
+            checkIns: fetchedUser.check_ins,
+            isPrivate: fetchedUser.is_private,
+            savedEvents: [] // Not fetching saved events in this query
+          };
+          setUser(mappedUser);
 
           // Fetch organized events
           // Fetch organized events
